@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新闻推荐</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #0a0a0f; font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #fff; overflow-y: auto; }
+    .container { max-width: 600px; margin: 0 auto; padding: 16px; padding-bottom: 100px; }
+    .header { text-align: center; padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 20px; }
+    .header h1 { font-size: 24px; color: #00ff88; margin-bottom: 8px; }
+    .header p { font-size: 14px; color: #888; }
+    .category-filter { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; margin-bottom: 20px; }
+    .category-btn { flex-shrink: 0; padding: 8px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 20px; color: #fff; font-size: 13px; cursor: pointer; }
+    .category-btn.active { background: #00ff88; color: #000; border-color: #00ff88; }
+    .news-list { display: flex; flex-direction: column; gap: 12px; }
+    .news-item { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .news-item.selected { border-color: #00ff88; background: rgba(0, 255, 136, 0.1); }
+    .news-checkbox { width: 24px; height: 24px; border: 2px solid #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+    .news-checkbox.checked { background: #00ff88; border-color: #00ff88; }
+    .news-checkbox.checked::after { content: "✓"; color: #000; font-weight: bold; font-size: 16px; }
+    .news-content { flex: 1; min-width: 0; }
+    .news-title { font-size: 15px; font-weight: 500; margin-bottom: 8px; line-height: 1.4; }
+    .news-meta { display: flex; gap: 12px; font-size: 12px; color: #888; }
+    .news-source { color: #00ff88; }
+    .news-tag { background: #333; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+    .submit-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; border-top: 1px solid #333; padding: 16px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+    .selected-count { font-size: 14px; color: #888; }
+    .selected-count span { color: #00ff88; font-weight: bold; }
+    .submit-btn { background: #00ff88; color: #000; border: none; padding: 12px 32px; border-radius: 24px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📰 新闻推荐</h1>
+      <p>选择你感兴趣的新闻，获取个性化推荐</p>
+    </div>
+    <div class="category-filter" id="categoryFilter">
+      <button class="category-btn active" data-category="all">全部</button>
+      <button class="category-btn" data-category="ai">AI</button>
+      <button class="category-btn" data-category="tech">科技</button>
+      <button class="category-btn" data-category="finance">财经</button>
+      <button class="category-btn" data-category="world">国际</button>
+      <button class="category-btn" data-category="china">国内</button>
+    </div>
+    <div class="news-list" id="newsList"></div>
+  </div>
+  <div class="submit-bar">
+    <div class="selected-count">已选择 <span id="selectedCount">0</span> 条</div>
+    <button class="submit-btn" id="submitBtn" disabled>提交选择</button>
+  </div>
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    let newsData = [], selectedIds = new Set(), currentCategory = 'all';
+    async function loadNews() { const res = await fetch('news-data.json'); newsData = await res.json(); renderNews(); }
+    function renderNews() { const filtered = currentCategory === 'all' ? newsData : newsData.filter(n => n.category === currentCategory); document.getElementById('newsList').innerHTML = filtered.map(news => `<div class="news-item ${selectedIds.has(news.id) ? 'selected' : ''}" data-id="${news.id}"><div class="news-checkbox ${selectedIds.has(news.id) ? 'checked' : ''}" onclick="toggleSelect('${news.id}')"></div><div class="news-content"><div class="news-title">${news.title}</div><div class="news-meta"><span class="news-source">${news.source}</span><span class="news-tag">${news.category.toUpperCase()}</span><span>${news.time_display||''}</span></div></div></div>`).join(''); }
+    function toggleSelect(id) { selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id); renderNews(); updateSubmitBar(); }
+    function updateSubmitBar() { document.getElementById('selectedCount').textContent = selectedIds.size; document.getElementById('submitBtn').disabled = selectedIds.size === 0; }
+    document.getElementById('submitBtn').addEventListener('click', () => { const selected = newsData.filter(n => selectedIds.has(n.id)); tg.sendData(JSON.stringify({ type: 'news_selection', selected: selected.map(n => ({ id: n.id, title: n.title, category: n.category })) })); });
+    document.getElementById('categoryFilter').addEventListener('click', e => { if (e.target.classList.contains('category-btn')) { document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active'); currentCategory = e.target.dataset.category; renderNews(); } });
+    loadNews();
+  </script>
+</body>
+</html>
