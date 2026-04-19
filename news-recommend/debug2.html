@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web App 诊断 - 增强版</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0f; color: #0f0; font-family: monospace; padding: 10px; font-size: 11px; }
+    h2 { color: #00ff88; margin: 15px 0 8px; font-size: 14px; }
+    pre { background: #1a1a2e; padding: 8px; border-radius: 6px; overflow-x: auto; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+    .btn { background: #00ff88; color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; cursor: pointer; margin: 8px 0; width: 100%; }
+    .btn:disabled { opacity: 0.5; }
+    .success { color: #00ff88; border: 1px solid #00ff88; }
+    .error { color: #ff4444; border: 1px solid #ff4444; }
+    .log { max-height: 200px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>🔍 增强诊断版</h1>
+  
+  <h2>1️⃣ 环境检测</h2>
+  <pre id="env"></pre>
+  
+  <h2>2️⃣ 测试 sendData</h2>
+  <button class="btn" id="testBtn" onclick="testSendData()">🧪 发送测试数据</button>
+  <pre id="testResult"></pre>
+  
+  <h2>3️⃣ 操作日志</h2>
+  <pre class="log" id="log"></pre>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    const logEl = document.getElementById('log');
+    let logs = [];
+    
+    function log(msg, type = 'info') {
+      const time = new Date().toLocaleTimeString();
+      const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+      logs.unshift(`[${time}] ${prefix} ${msg}`);
+      logEl.textContent = logs.join('\n');
+      console.log('[WebApp]', msg);
+    }
+    
+    // 初始化
+    log('页面加载开始');
+    tg.ready();
+    log('tg.ready() 调用完成');
+    tg.expand();
+    log('tg.expand() 调用完成');
+    
+    // 环境信息
+    const env = {
+      isInTelegram: !!tg.initDataUnsafe?.user,
+      userId: tg.initDataUnsafe?.user?.id,
+      username: tg.initDataUnsafe?.user?.username,
+      sdkVersion: tg.version,
+      hasSendData: typeof tg.sendData === 'function',
+      platform: tg.platform,
+      colorScheme: tg.colorScheme
+    };
+    document.getElementById('env').textContent = JSON.stringify(env, null, 2);
+    log(`环境检测完成：isInTelegram=${env.isInTelegram}`);
+    
+    // 测试 sendData
+    async function testSendData() {
+      const btn = document.getElementById('testBtn');
+      const resultEl = document.getElementById('testResult');
+      
+      btn.disabled = true;
+      btn.textContent = '发送中...';
+      log('开始发送测试数据...');
+      
+      const testData = {
+        type: 'diagnostic_test',
+        timestamp: Date.now(),
+        env: env
+      };
+      
+      try {
+        // 检查是否在 Telegram 内
+        if (!env.isInTelegram) {
+          throw new Error('不在 Telegram 环境中 - 无法使用 sendData');
+        }
+        
+        // 检查 sendData 是否存在
+        if (!tg.sendData) {
+          throw new Error('tg.sendData 方法不存在');
+        }
+        
+        // 调用 sendData
+        log('调用 tg.sendData()...');
+        const jsonData = JSON.stringify(testData);
+        log(`数据大小：${jsonData.length} 字节`);
+        
+        tg.sendData(jsonData);
+        log('sendData 调用成功 - 无异常抛出');
+        
+        resultEl.className = 'success';
+        resultEl.textContent = '✅ sendData 调用成功！\n\n数据已发送到 Bot。\n如果 Bot 没收到，可能是：\n1. Bot 权限问题\n2. Telegram 服务器延迟\n3. Web App 链接问题';
+        
+        // 2 秒后关闭
+        setTimeout(() => {
+          log('关闭 Web App...');
+          tg.close();
+        }, 2000);
+        
+      } catch (e) {
+        log(`发送失败：${e.message}`, 'error');
+        resultEl.className = 'error';
+        resultEl.textContent = `❌ 发送失败\n\n错误：${e.message}\n堆栈：${e.stack}\n\n建议：\n1. 确认在 Telegram 内打开\n2. 更新 Telegram 到最新版\n3. 重启 Telegram App`;
+        btn.disabled = false;
+        btn.textContent = '🧪 重试';
+      }
+    }
+    
+    // 设置 MainButton
+    if (env.isInTelegram) {
+      tg.MainButton.setText('发送测试数据');
+      tg.MainButton.setParams({ color: '#00ff88', text_color: '#000000' });
+      tg.MainButton.show();
+      tg.MainButton.onClick(() => testSendData());
+      log('MainButton 已配置');
+    }
+    
+    log('页面初始化完成');
+  </script>
+</body>
+</html>
