@@ -31,6 +31,7 @@
     .selected-count span { color: #00ff88; font-weight: bold; }
     .submit-btn { background: #00ff88; color: #000; border: none; padding: 12px 32px; border-radius: 24px; font-size: 15px; font-weight: 600; cursor: pointer; }
     .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .debug-log { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 8px; font-size: 10px; color: #0f0; max-width: 200px; z-index: 999; }
   </style>
 </head>
 <body>
@@ -53,16 +54,113 @@
     <div class="selected-count">已选择 <span id="selectedCount">0</span> 条</div>
     <button class="submit-btn" id="submitBtn" disabled>提交选择</button>
   </div>
+  <div class="debug-log" id="debugLog"></div>
+
   <script>
     const tg = window.Telegram.WebApp;
+    const debugLog = document.getElementById('debugLog');
+    
+    function log(msg) {
+      debugLog.textContent = msg;
+      console.log('[NewsApp]', msg);
+    }
+    
+    log('初始化...');
     tg.ready();
+    tg.expand();
+    log('Telegram SDK 就绪');
+    
+    // 设置主按钮
+    tg.MainButton.setText("提交选择");
+    tg.MainButton.setParams({ color: '#00ff88', text_color: '#000000' });
+    tg.MainButton.onClick(() => submitSelection());
+    
     let newsData = [], selectedIds = new Set(), currentCategory = 'all';
-    async function loadNews() { const res = await fetch('news-data.json'); newsData = await res.json(); renderNews(); }
-    function renderNews() { const filtered = currentCategory === 'all' ? newsData : newsData.filter(n => n.category === currentCategory); document.getElementById('newsList').innerHTML = filtered.map(news => `<div class="news-item ${selectedIds.has(news.id) ? 'selected' : ''}" data-id="${news.id}"><div class="news-checkbox ${selectedIds.has(news.id) ? 'checked' : ''}" onclick="toggleSelect('${news.id}')"></div><div class="news-content"><div class="news-title">${news.title}</div><div class="news-meta"><span class="news-source">${news.source}</span><span class="news-tag">${news.category.toUpperCase()}</span><span>${news.time_display||''}</span></div></div></div>`).join(''); }
-    function toggleSelect(id) { selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id); renderNews(); updateSubmitBar(); }
-    function updateSubmitBar() { document.getElementById('selectedCount').textContent = selectedIds.size; document.getElementById('submitBtn').disabled = selectedIds.size === 0; }
-    document.getElementById('submitBtn').addEventListener('click', () => { const selected = newsData.filter(n => selectedIds.has(n.id)); tg.sendData(JSON.stringify({ type: 'news_selection', selected: selected.map(n => ({ id: n.id, title: n.title, category: n.category })) })); });
-    document.getElementById('categoryFilter').addEventListener('click', e => { if (e.target.classList.contains('category-btn')) { document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active'); currentCategory = e.target.dataset.category; renderNews(); } });
+    
+    async function loadNews() {
+      try {
+        const res = await fetch('news-data.json');
+        newsData = await res.json();
+        log(`加载 ${newsData.length} 条新闻`);
+        renderNews();
+      } catch (e) {
+        log('加载失败：' + e.message);
+      }
+    }
+    
+    function renderNews() {
+      const filtered = currentCategory === 'all' ? newsData : newsData.filter(n => n.category === currentCategory);
+      document.getElementById('newsList').innerHTML = filtered.map(news => `
+        <div class="news-item ${selectedIds.has(news.id) ? 'selected' : ''}" data-id="${news.id}">
+          <div class="news-checkbox ${selectedIds.has(news.id) ? 'checked' : ''}" onclick="toggleSelect('${news.id}')"></div>
+          <div class="news-content">
+            <div class="news-title">${news.title}</div>
+            <div class="news-meta">
+              <span class="news-source">${news.source}</span>
+              <span class="news-tag">${news.category.toUpperCase()}</span>
+              <span>${news.time_display || ''}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function toggleSelect(id) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      renderNews();
+      updateSubmitBar();
+      log(`选择 ${selectedIds.size} 条`);
+    }
+    
+    function updateSubmitBar() {
+      const count = selectedIds.size;
+      document.getElementById('selectedCount').textContent = count;
+      document.getElementById('submitBtn').disabled = count === 0;
+      
+      if (count > 0) {
+        tg.MainButton.show();
+        tg.MainButton.enable();
+      } else {
+        tg.MainButton.disable();
+      }
+    }
+    
+    async function submitSelection() {
+      const selected = newsData.filter(n => selectedIds.has(n.id));
+      const data = {
+        type: 'news_selection',
+        selected: selected.map(n => ({ id: n.id, title: n.title, category: n.category })),
+        timestamp: Date.now()
+      };
+      
+      log('发送数据...');
+      tg.sendData(JSON.stringify(data));
+      
+      // 显示发送状态
+      tg.MainButton.setText("发送中...");
+      tg.MainButton.disable();
+      
+      setTimeout(() => {
+        log('发送完成');
+        tg.close();
+      }, 1000);
+    }
+    
+    document.getElementById('categoryFilter').addEventListener('click', e => {
+      if (e.target.classList.contains('category-btn')) {
+        document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentCategory = e.target.dataset.category;
+        renderNews();
+      }
+    });
+    
+    // 初始化
+    log('加载新闻...');
     loadNews();
   </script>
 </body>
