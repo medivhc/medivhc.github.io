@@ -27,37 +27,27 @@
 </head>
 <body>
   <h1>📰 新闻推荐</h1>
-  <div class="status">✅ 数据发送到 Webhook | <a href="https://webhook.site/105b6159-c20c-4212-ada3-091967d4df4d" target="_blank" style="color:#00ff88">查看数据</a></div>
-  
+  <div class="status">✅ 数据发送到 VPS | 我来监控并回复</div>
   <div class="category-filter" id="categoryFilter">
     <button class="category-btn active" data-category="all">全部</button>
     <button class="category-btn" data-category="ai">AI</button>
     <button class="category-btn" data-category="tech">科技</button>
     <button class="category-btn" data-category="finance">财经</button>
   </div>
-  
   <div class="news-list" id="newsList"></div>
-  
   <div class="submit-area">
     <div style="margin-bottom:12px">已选择 <span id="selectedCount" style="color:#00ff88;font-weight:bold">0</span> 条</div>
     <button class="btn" id="sendBtn" disabled>📡 发送选择</button>
     <div class="log" id="log"></div>
   </div>
-
   <script>
     const tg = window.Telegram.WebApp;
-    const WEBHOOK_URL = "https://webhook.site/105b6159-c20c-4212-ada3-091967d4df4d";
+    const VPS_ENDPOINT = "http://192.3.53.155:8899/receive";
     const logs = [];
-    
-    function log(msg) {
-      logs.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`);
-      document.getElementById("log").textContent = logs.join("\n");
-    }
-    
+    function log(msg) { logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg); document.getElementById("log").textContent = logs.join("\n"); }
     tg.ready(); tg.expand();
     const user = tg.initDataUnsafe?.user || {};
     log("初始化完成");
-    
     const newsData = [
       {id:"1", title:"OpenAI 发布 GPT-4o 新版本", source:"TechCrunch", category:"ai"},
       {id:"2", title:"苹果 WWDC 2024 即将召开", source:"The Verge", category:"tech"},
@@ -68,64 +58,28 @@
       {id:"7", title:"特斯拉 FSD V12 推送", source:"Electrek", category:"tech"},
       {id:"8", title:"Midjourney V6 发布", source:"Midjourney", category:"ai"}
     ];
-    
     let selectedIds = new Set(), currentCategory = "all";
-    
     function renderNews() {
       const filtered = currentCategory === "all" ? newsData : newsData.filter(n => n.category === currentCategory);
-      document.getElementById("newsList").innerHTML = filtered.map(n => `
-        <div class="news-item ${selectedIds.has(n.id)?"selected":""}" onclick="toggle('${n.id}')">
-          <div class="news-checkbox ${selectedIds.has(n.id)?"checked":""}"></div>
-          <div><div style="font-weight:500">${n.title}</div><div style="font-size:11px;color:#888">${n.source} · ${n.category}</div></div>
-        </div>
-      `).join("");
+      document.getElementById("newsList").innerHTML = filtered.map(n => '<div class="news-item ' + (selectedIds.has(n.id)?"selected":"") + '" onclick="toggle('' + n.id + '')"><div class="news-checkbox ' + (selectedIds.has(n.id)?"checked":"") + '"></div><div><div style="font-weight:500">' + n.title + '</div><div style="font-size:11px;color:#888">' + n.source + ' · ' + n.category + '</div></div></div>').join("");
     }
-    
     function toggle(id) { selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id); renderNews(); updateBtn(); }
-    function updateBtn() {
-      const c = selectedIds.size;
-      document.getElementById("selectedCount").textContent = c;
-      document.getElementById("sendBtn").disabled = c === 0;
-    }
-    
+    function updateBtn() { const c = selectedIds.size; document.getElementById("selectedCount").textContent = c; document.getElementById("sendBtn").disabled = c === 0; }
     async function send() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
-      const data = {
-        type: "news_selection",
-        user: { id: user.id, username: user.username },
-        selected: selected.map(n => ({ id: n.id, title: n.title, category: n.category })),
-        timestamp: Date.now()
-      };
-      
+      const data = { type: "news_selection", user: { id: user.id, username: user.username }, selected: selected.map(n => ({ id: n.id, title: n.title, category: n.category })), timestamp: Date.now() };
       const btn = document.getElementById("sendBtn");
       btn.disabled = true; btn.textContent = "发送中...";
-      log("发送到 Webhook...");
-      
+      log("发送到 VPS...");
       try {
-        const res = await fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify(data)
-        });
-        log(`✅ 发送成功！状态码：${res.status}`);
-        btn.textContent = "✅ 已发送 - 等待回复";
-        btn.className = "btn";
-        btn.style.background = "#333";
-        log("请等待 Bot 回复...");
-      } catch (e) {
-        log(`❌ 失败：${e.message}`);
-        btn.disabled = false; btn.textContent = "🔄 重试";
-      }
+        const res = await fetch(VPS_ENDPOINT, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
+        const result = await res.json();
+        if (result.ok) { log("✅ 发送成功!"); btn.textContent = "✅ 已发送 - 等待 Bot 回复"; btn.style.background = "#333"; }
+        else { log("❌ 失败：" + result.error); btn.disabled = false; btn.textContent = "🔄 重试"; }
+      } catch (e) { log("❌ 网络错误：" + e.message); btn.disabled = false; btn.textContent = "🔄 重试"; }
     }
-    
     document.getElementById("sendBtn").onclick = send;
-    document.getElementById("categoryFilter").onclick = e => {
-      if (e.target.classList.contains("category-btn")) {
-        document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
-        e.target.classList.add("active"); currentCategory = e.target.dataset.category; renderNews();
-      }
-    };
-    
+    document.getElementById("categoryFilter").onclick = e => { if (e.target.classList.contains("category-btn")) { document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active")); e.target.classList.add("active"); currentCategory = e.target.dataset.category; renderNews(); } };
     renderNews();
   </script>
 </body>
