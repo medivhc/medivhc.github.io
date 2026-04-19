@@ -3,49 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>新闻推荐</title>
+  <title>新闻推荐 - 最终版</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #0a0a0f; font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #fff; overflow-y: auto; }
-    .container { max-width: 600px; margin: 0 auto; padding: 16px; padding-bottom: 120px; }
+    html, body { width: 100%; height: 100%; background: #0a0a0f; font-family: -apple-system, sans-serif; color: #fff; overflow-y: auto; }
+    .container { max-width: 600px; margin: 0 auto; padding: 16px; padding-bottom: 140px; }
     .header { text-align: center; padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 20px; }
     .header h1 { font-size: 24px; color: #00ff88; margin-bottom: 8px; }
-    .header p { font-size: 14px; color: #888; }
+    .status-bar { background: #1a1a2e; padding: 10px; border-radius: 8px; margin-bottom: 16px; font-size: 12px; }
+    .status-bar.ok { border-left: 3px solid #00ff88; }
+    .status-bar.error { border-left: 3px solid #ff4444; }
     .category-filter { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; margin-bottom: 20px; }
     .category-btn { flex-shrink: 0; padding: 8px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 20px; color: #fff; font-size: 13px; cursor: pointer; }
     .category-btn.active { background: #00ff88; color: #000; border-color: #00ff88; }
     .news-list { display: flex; flex-direction: column; gap: 12px; }
-    .news-item { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .news-item { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 14px; display: flex; gap: 12px; align-items: flex-start; }
     .news-item.selected { border-color: #00ff88; background: rgba(0, 255, 136, 0.1); }
     .news-checkbox { width: 24px; height: 24px; border: 2px solid #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
     .news-checkbox.checked { background: #00ff88; border-color: #00ff88; }
     .news-checkbox.checked::after { content: "✓"; color: #000; font-weight: bold; font-size: 16px; }
-    .news-content { flex: 1; min-width: 0; }
-    .news-title { font-size: 15px; font-weight: 500; margin-bottom: 8px; line-height: 1.4; }
-    .news-meta { display: flex; gap: 12px; font-size: 12px; color: #888; }
+    .news-content { flex: 1; }
+    .news-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+    .news-meta { display: flex; gap: 10px; font-size: 11px; color: #888; }
     .news-source { color: #00ff88; }
-    .news-tag { background: #333; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-    .submit-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; border-top: 1px solid #333; padding: 16px; display: flex; flex-direction: column; gap: 10px; align-items: center; z-index: 100; }
-    .selected-count { font-size: 14px; color: #888; }
+    .submit-area { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; border-top: 1px solid #333; padding: 16px; }
+    .selected-info { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
     .selected-count span { color: #00ff88; font-weight: bold; }
-    .submit-btn { background: #00ff88; color: #000; border: none; padding: 12px 32px; border-radius: 24px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; max-width: 300px; }
-    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .status { font-size: 12px; color: #888; text-align: center; min-height: 18px; }
-    .status.success { color: #00ff88; }
-    .status.error { color: #ff4444; }
-    .tip { background: rgba(0,255,136,0.1); border: 1px solid #00ff88; border-radius: 8px; padding: 12px; margin-top: 20px; font-size: 13px; color: #00ff88; }
+    .send-methods { display: flex; gap: 8px; flex-wrap: wrap; }
+    .method-btn { flex: 1; min-width: 120px; background: #333; color: #fff; border: none; padding: 10px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+    .method-btn.primary { background: #00ff88; color: #000; }
+    .method-btn:disabled { opacity: 0.5; }
+    .log { margin-top: 12px; background: #000; padding: 8px; border-radius: 6px; font-size: 10px; color: #0f0; max-height: 100px; overflow-y: auto; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>📰 新闻推荐</h1>
-      <p>选择你感兴趣的新闻，获取个性化推荐</p>
+      <p>选择感兴趣的新闻，获取个性化推荐</p>
     </div>
     
-    <div class="tip" id="tipBox">
-      💡 提示：请在 Telegram 内打开此页面以获得最佳体验
+    <div class="status-bar ok" id="statusBar">
+      ✅ 已连接到 Telegram | 用户：<span id="userName">加载中...</span>
     </div>
     
     <div class="category-filter" id="categoryFilter">
@@ -56,148 +56,189 @@
       <button class="category-btn" data-category="world">国际</button>
       <button class="category-btn" data-category="china">国内</button>
     </div>
+    
     <div class="news-list" id="newsList"></div>
   </div>
   
-  <div class="submit-bar">
-    <div class="selected-count">已选择 <span id="selectedCount">0</span> 条</div>
-    <button class="submit-btn" id="submitBtn" disabled>提交选择</button>
-    <div class="status" id="status"></div>
+  <div class="submit-area">
+    <div class="selected-info">
+      <div class="selected-count">已选择 <span id="selectedCount">0</span> 条</div>
+    </div>
+    <div class="send-methods">
+      <button class="method-btn primary" id="sendDataBtn" disabled>📡 sendData</button>
+      <button class="method-btn" id="inlineBtn" disabled>🔘 Inline</button>
+      <button class="method-btn" id="switchBtn" disabled>🔄 Switch</button>
+    </div>
+    <div class="log" id="log"></div>
   </div>
 
   <script>
     const tg = window.Telegram.WebApp;
-    const BOT_USERNAME = 'medivhc_ai_bot';
+    const BOT_USERNAME = "medivhc_ai_bot";
+    const logs = [];
     
-    // 检测是否在 Telegram 内
-    const isInTelegram = !!tg.initDataUnsafe?.user;
+    function log(msg) {
+      const time = new Date().toLocaleTimeString();
+      logs.unshift(`[${time}] ${msg}`);
+      document.getElementById("log").textContent = logs.join("\n");
+      console.log("[NewsApp]", msg);
+    }
+    
+    tg.ready();
+    tg.expand();
+    log("Telegram SDK 初始化完成");
+    
+    // 用户信息
     const user = tg.initDataUnsafe?.user || {};
+    const userId = user.id || "unknown";
+    const username = user.username || user.first_name || "unknown";
+    const isInTelegram = !!tg.initDataUnsafe?.user;
     
-    console.log('初始化', { isInTelegram, user });
+    document.getElementById("userName").textContent = username;
+    log(`用户：${username} (ID: ${userId})`);
+    log(`环境：${isInTelegram ? "Telegram 内" : "外部浏览器"}`);
     
-    // 隐藏提示框如果在 Telegram 内
-    if (isInTelegram) {
-      document.getElementById('tipBox').style.display = 'none';
-      tg.ready();
-      tg.expand();
+    if (!isInTelegram) {
+      document.getElementById("statusBar").className = "status-bar error";
+      document.getElementById("statusBar").innerHTML = "❌ 请在 Telegram 内打开此页面";
     }
     
-    let newsData = [], selectedIds = new Set(), currentCategory = 'all';
+    // 新闻数据
+    const newsData = [
+      {id:"1", title:"OpenAI 发布 GPT-4o 新版本，多模态能力大幅提升", source:"TechCrunch", category:"ai"},
+      {id:"2", title:"苹果 WWDC 2024 即将召开，iOS 18 有望集成 AI", source:"The Verge", category:"tech"},
+      {id:"3", title:"美联储宣布维持利率不变，市场预期 9 月降息", source:"Reuters", category:"finance"},
+      {id:"4", title:"Claude 3.5 Sonnet 基准测试超越 GPT-4", source:"Anthropic", category:"ai"},
+      {id:"5", title:"欧盟通过 AI 法案，全球首部全面监管法规", source:"BBC", category:"world"},
+      {id:"6", title:"字节跳动发布豆包大模型，中文能力优秀", source:"36 氪", category:"china"},
+      {id:"7", title:"特斯拉 FSD V12 推送，纯视觉方案突破", source:"Electrek", category:"tech"},
+      {id:"8", title:"Midjourney V6 发布，图像生成质量升级", source:"Midjourney", category:"ai"},
+      {id:"9", title:"英伟达市值破 3 万亿，AI 芯片需求火爆", source:"Bloomberg", category:"finance"},
+      {id:"10", title:"百度文心一言 4.5 发布，多模态能力提升", source:"机器之心", category:"china"}
+    ];
     
-    async function loadNews() {
-      try {
-        const res = await fetch('news-data.json');
-        newsData = await res.json();
-        renderNews();
-      } catch (e) {
-        setStatus('加载失败：' + e.message, 'error');
-      }
-    }
+    let selectedIds = new Set();
+    let currentCategory = "all";
     
     function renderNews() {
-      const filtered = currentCategory === 'all' ? newsData : newsData.filter(n => n.category === currentCategory);
-      document.getElementById('newsList').innerHTML = filtered.map(news => `
-        <div class="news-item ${selectedIds.has(news.id) ? 'selected' : ''}" data-id="${news.id}">
-          <div class="news-checkbox ${selectedIds.has(news.id) ? 'checked' : ''}" onclick="toggleSelect('${news.id}')"></div>
+      const filtered = currentCategory === "all" ? newsData : newsData.filter(n => n.category === currentCategory);
+      document.getElementById("newsList").innerHTML = filtered.map(news => `
+        <div class="news-item ${selectedIds.has(news.id) ? "selected" : ""}" data-id="${news.id}">
+          <div class="news-checkbox ${selectedIds.has(news.id) ? "checked" : ""}" onclick="toggleSelect('${news.id}')"></div>
           <div class="news-content">
             <div class="news-title">${news.title}</div>
             <div class="news-meta">
               <span class="news-source">${news.source}</span>
-              <span class="news-tag">${news.category.toUpperCase()}</span>
-              <span>${news.time_display || ''}</span>
+              <span>・</span>
+              <span>${news.category.toUpperCase()}</span>
             </div>
           </div>
         </div>
-      `).join('');
+      `).join("");
     }
     
     function toggleSelect(id) {
       selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
       renderNews();
-      updateSubmitBar();
+      updateButtons();
+      log(`选择 ${selectedIds.size} 条新闻`);
     }
     
-    function updateSubmitBar() {
+    function updateButtons() {
       const count = selectedIds.size;
-      document.getElementById('selectedCount').textContent = count;
-      document.getElementById('submitBtn').disabled = count === 0;
-    }
-    
-    function setStatus(msg, type = '') {
-      const el = document.getElementById('status');
-      el.textContent = msg;
-      el.className = 'status ' + type;
+      document.getElementById("selectedCount").textContent = count;
+      document.getElementById("sendDataBtn").disabled = count === 0;
+      document.getElementById("inlineBtn").disabled = count === 0;
+      document.getElementById("switchBtn").disabled = count === 0;
+      
+      if (count > 0 && isInTelegram) {
+        tg.MainButton.setText(`提交 ${count} 条选择`);
+        tg.MainButton.setParams({ color: "#00ff88", text_color: "#000000" });
+        tg.MainButton.show();
+        tg.MainButton.enable();
+      } else {
+        tg.MainButton.hide();
+      }
     }
     
     function buildData() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
       return {
-        type: 'news_selection',
-        user: { id: user.id, username: user.username || 'unknown' },
+        type: "news_selection",
+        user: { id: userId, username: username },
         selected: selected.map(n => ({ id: n.id, title: n.title, category: n.category })),
         timestamp: Date.now()
       };
     }
     
-    async function submitSelection() {
+    // 方法 1: sendData
+    async function useSendData() {
+      log("方法 1: 使用 sendData...");
       const data = buildData();
-      const btn = document.getElementById('submitBtn');
-      btn.disabled = true;
-      btn.textContent = '发送中...';
       
-      // 方案 1: 在 Telegram 内使用 sendData
-      if (isInTelegram && tg.sendData) {
-        try {
-          tg.sendData(JSON.stringify(data));
-          setStatus('✅ 已发送！页面将关闭...', 'success');
-          setTimeout(() => tg.close(), 1500);
-          return;
-        } catch (e) {
-          console.error('sendData 失败:', e);
-        }
-      }
-      
-      // 方案 2: 使用 Telegram Deep Link
       try {
-        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-        const link = `https://t.me/${BOT_USERNAME}?start=${encoded}`;
-        
-        if (isInTelegram) {
-          tg.switchInlineQuery(encoded, ['users', 'groups']);
-          setStatus('✅ 正在发送...', 'success');
-          setTimeout(() => tg.close(), 1000);
-        } else {
-          window.location.href = link;
-          setStatus('✅ 正在跳转到 Telegram...', 'success');
-        }
-        return;
+        tg.sendData(JSON.stringify(data));
+        log("✅ sendData 调用成功");
+        log("等待 Bot 回复...");
+        setTimeout(() => {
+          log("页面将关闭");
+          tg.close();
+        }, 1500);
       } catch (e) {
-        console.error('方案 2 失败:', e);
+        log(`❌ sendData 失败：${e.message}`);
       }
-      
-      // 方案 3: 显示数据
-      setStatus('📋 选择内容：' + data.selected.map(s => s.title).join(', '), 'success');
-      btn.textContent = '已提交';
-      
-      // 复制到剪贴板
-      try {
-        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-        setStatus('✅ 已复制到剪贴板，请发送给 @medivhc_ai_bot', 'success');
-      } catch (e) {}
     }
     
-    document.getElementById('submitBtn').addEventListener('click', submitSelection);
+    // 方法 2: Inline Query
+    async function useInlineQuery() {
+      log("方法 2: 使用 switchInlineQuery...");
+      const data = buildData();
+      const encoded = btoa(JSON.stringify(data));
+      
+      try {
+        tg.switchInlineQuery(encoded, ["users", "groups"], "");
+        log("✅ switchInlineQuery 调用成功");
+      } catch (e) {
+        log(`❌ switchInlineQuery 失败：${e.message}`);
+        // 降级到打开链接
+        window.location.href = `https://t.me/${BOT_USERNAME}?start=${encoded}`;
+        log("降级：打开 Bot 链接");
+      }
+    }
     
-    document.getElementById('categoryFilter').addEventListener('click', e => {
-      if (e.target.classList.contains('category-btn')) {
-        document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
+    // 方法 3: 打开 Bot 对话框
+    async function useOpenBot() {
+      log("方法 3: 打开 Bot 对话框...");
+      const data = buildData();
+      const encoded = btoa(JSON.stringify(data));
+      
+      try {
+        tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?start=${encoded}`);
+        log("✅ 已打开 Bot 链接");
+      } catch (e) {
+        log(`❌ 打开链接失败：${e.message}`);
+        window.location.href = `https://t.me/${BOT_USERNAME}?start=${encoded}`;
+      }
+    }
+    
+    // 绑定事件
+    document.getElementById("sendDataBtn").onclick = useSendData;
+    document.getElementById("inlineBtn").onclick = useInlineQuery;
+    document.getElementById("switchBtn").onclick = useOpenBot;
+    
+    tg.MainButton.onClick(useSendData);
+    
+    document.getElementById("categoryFilter").onclick = e => {
+      if (e.target.classList.contains("category-btn")) {
+        document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
+        e.target.classList.add("active");
         currentCategory = e.target.dataset.category;
         renderNews();
       }
-    });
+    };
     
-    loadNews();
+    log("页面初始化完成");
+    renderNews();
   </script>
 </body>
 </html>
