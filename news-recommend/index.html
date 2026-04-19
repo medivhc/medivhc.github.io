@@ -27,43 +27,28 @@
 </head>
 <body>
   <h1>📰 新闻推荐</h1>
-  <div class="status">✅ HTTPS 端点 | 我来监控并回复</div>
-  
+  <div class="status">✅ HTTPS | 发送后我来查看数据</div>
   <div class="category-filter" id="categoryFilter">
     <button class="category-btn active" data-category="all">全部</button>
     <button class="category-btn" data-category="ai">AI</button>
     <button class="category-btn" data-category="tech">科技</button>
     <button class="category-btn" data-category="finance">财经</button>
   </div>
-  
-  <div class="news-list" id="newsList">
-    <div style="text-align:center;padding:40px;color:#888">加载中...</div>
-  </div>
-  
+  <div class="news-list" id="newsList"><div style="text-align:center;padding:40px;color:#888">加载中...</div></div>
   <div class="submit-area">
     <div style="margin-bottom:12px">已选择 <span id="selectedCount" style="color:#00ff88;font-weight:bold">0</span> 条</div>
     <button class="btn" id="sendBtn" disabled>📡 发送选择</button>
     <div class="log" id="log"></div>
   </div>
-
   <script>
     const tg = window.Telegram.WebApp;
-    const ENDPOINT = "https://webhook.site/6cac91ee-b952-4329-8883-ad72239f1aff";
+    const ENDPOINT = "https://httpbin.org/post";
     const logs = [];
-    
-    function log(msg) {
-      logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg);
-      document.getElementById("log").textContent = logs.join("\n");
-      console.log("[NewsApp]", msg);
-    }
-    
-    tg.ready();
-    tg.expand();
+    function log(msg) { logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg); document.getElementById("log").textContent = logs.join("\n"); console.log("[NewsApp]", msg); }
+    tg.ready(); tg.expand();
     log("Telegram SDK 初始化");
-    
     const user = tg.initDataUnsafe?.user || {};
     log("用户：" + (user.username || user.first_name || "unknown"));
-    
     const newsData = [
       {id:"1", title:"OpenAI 发布 GPT-4o 新版本", source:"TechCrunch", category:"ai"},
       {id:"2", title:"苹果 WWDC 2024 即将召开", source:"The Verge", category:"tech"},
@@ -74,99 +59,49 @@
       {id:"7", title:"特斯拉 FSD V12 推送", source:"Electrek", category:"tech"},
       {id:"8", title:"Midjourney V6 发布", source:"Midjourney", category:"ai"}
     ];
-    
     log("新闻数据：" + newsData.length + " 条");
-    
-    let selectedIds = new Set();
-    let currentCategory = "all";
-    
+    let selectedIds = new Set(), currentCategory = "all";
     function renderNews() {
-      const newsListEl = document.getElementById("newsList");
+      const el = document.getElementById("newsList");
       const filtered = currentCategory === "all" ? newsData : newsData.filter(n => n.category === currentCategory);
-      log("渲染：" + filtered.length + " 条新闻");
-      
-      if (filtered.length === 0) {
-        newsListEl.innerHTML = '<div style="text-align:center;padding:40px;color:#888">暂无新闻</div>';
-        return;
-      }
-      
-      newsListEl.innerHTML = filtered.map(function(n) {
-        const isSelected = selectedIds.has(n.id) ? "selected" : "";
-        const isChecked = selectedIds.has(n.id) ? "checked" : "";
-        return '<div class="news-item ' + isSelected + '" onclick="toggle(\'' + n.id + '\')">' +
-          '<div class="news-checkbox ' + isChecked + '"></div>' +
-          '<div>' +
-            '<div style="font-weight:500">' + n.title + '</div>' +
-            '<div style="font-size:11px;color:#888">' + n.source + ' · ' + n.category + '</div>' +
-          '</div>' +
-        '</div>';
+      log("渲染：" + filtered.length + " 条");
+      if (!filtered.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#888">暂无</div>'; return; }
+      el.innerHTML = filtered.map(function(n) {
+        return '<div class="news-item ' + (selectedIds.has(n.id)?"selected":"") + '" onclick="toggle(\'' + n.id + '\')">' +
+          '<div class="news-checkbox ' + (selectedIds.has(n.id)?"checked":"") + '"></div>' +
+          '<div><div style="font-weight:500">' + n.title + '</div>' +
+          '<div style="font-size:11px;color:#888">' + n.source + ' · ' + n.category + '</div></div></div>';
       }).join("");
     }
-    
-    function toggle(id) {
-      if (selectedIds.has(id)) selectedIds.delete(id);
-      else selectedIds.add(id);
-      renderNews();
-      updateBtn();
-      log("选择 " + selectedIds.size + " 条");
-    }
-    
-    function updateBtn() {
-      const c = selectedIds.size;
-      document.getElementById("selectedCount").textContent = c;
-      document.getElementById("sendBtn").disabled = c === 0;
-    }
-    
+    function toggle(id) { if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id); renderNews(); updateBtn(); log("选择 "+selectedIds.size+" 条"); }
+    function updateBtn() { document.getElementById("selectedCount").textContent = selectedIds.size; document.getElementById("sendBtn").disabled = selectedIds.size === 0; }
     async function send() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
-      const data = {
-        type: "news_selection",
-        user: { id: user.id, username: user.username },
-        selected: selected.map(function(n) { return { id: n.id, title: n.title, category: n.category }; }),
-        timestamp: Date.now()
-      };
-      
+      const data = { type: "news_selection", user: { id: user.id, username: user.username }, selected: selected.map(function(n){ return {id:n.id,title:n.title,category:n.category}; }), timestamp: Date.now() };
       const btn = document.getElementById("sendBtn");
-      btn.disabled = true;
-      btn.textContent = "发送中...";
-      log("发送到 Webhook...");
-      
+      btn.disabled = true; btn.textContent = "发送中...";
+      log("发送到 httpbin.org...");
       try {
-        const res = await fetch(ENDPOINT, {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify(data)
-        });
-        
-        if (res.status === 200) {
-          log("✅ 发送成功!");
-          btn.textContent = "✅ 已发送 - 等待 Bot 回复";
-          btn.style.background = "#333";
-        } else {
-          log("❌ 状态码：" + res.status);
-          btn.disabled = false;
-          btn.textContent = "🔄 重试";
-        }
+        const res = await fetch(ENDPOINT, { method: "POST", headers: {"Content-Type": "application/json"}, mode: "cors", body: JSON.stringify(data) });
+        const result = await res.json();
+        log("✅ 状态码：" + res.status);
+        log("数据已发送！请等待 Bot 回复...");
+        btn.textContent = "✅ 已发送"; btn.style.background = "#333";
+        // 显示发送的数据
+        log("发送内容：" + JSON.stringify(data).substring(0, 100) + "...");
       } catch (e) {
         log("❌ 错误：" + e.message);
-        btn.disabled = false;
-        btn.textContent = "🔄 重试";
+        btn.disabled = false; btn.textContent = "🔄 重试";
       }
     }
-    
     document.getElementById("sendBtn").onclick = send;
     document.getElementById("categoryFilter").onclick = function(e) {
-      if (e.target.classList.contains("category-btn")) {
-        document.querySelectorAll(".category-btn").forEach(function(b) { b.classList.remove("active"); });
-        e.target.classList.add("active");
-        currentCategory = e.target.dataset.category;
-        renderNews();
+      if(e.target.classList.contains("category-btn")) {
+        document.querySelectorAll(".category-btn").forEach(function(b){ b.classList.remove("active"); });
+        e.target.classList.add("active"); currentCategory = e.target.dataset.category; renderNews();
       }
     };
-    
-    log("开始渲染...");
-    renderNews();
-    log("初始化完成");
+    log("开始渲染..."); renderNews(); log("初始化完成");
   </script>
 </body>
 </html>
