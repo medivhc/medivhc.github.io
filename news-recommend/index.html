@@ -27,7 +27,7 @@
 </head>
 <body>
   <h1>📰 新闻推荐</h1>
-  <div class="status">✅ 数据发送到 VPS | 我来监控并回复</div>
+  <div class="status">✅ HTTPS 端点 | 我来监控并回复</div>
   
   <div class="category-filter" id="categoryFilter">
     <button class="category-btn active" data-category="all">全部</button>
@@ -48,7 +48,7 @@
 
   <script>
     const tg = window.Telegram.WebApp;
-    const VPS_ENDPOINT = "http://192.3.53.155:8899/receive";
+    const ENDPOINT = "https://webhook.site/6cac91ee-b952-4329-8883-ad72239f1aff";
     const logs = [];
     
     function log(msg) {
@@ -82,13 +82,8 @@
     
     function renderNews() {
       const newsListEl = document.getElementById("newsList");
-      if (!newsListEl) {
-        log("错误：找不到 newsList 元素");
-        return;
-      }
-      
       const filtered = currentCategory === "all" ? newsData : newsData.filter(n => n.category === currentCategory);
-      log("渲染：" + filtered.length + " 条新闻 (分类：" + currentCategory + ")");
+      log("渲染：" + filtered.length + " 条新闻");
       
       if (filtered.length === 0) {
         newsListEl.innerHTML = '<div style="text-align:center;padding:40px;color:#888">暂无新闻</div>';
@@ -109,11 +104,8 @@
     }
     
     function toggle(id) {
-      if (selectedIds.has(id)) {
-        selectedIds.delete(id);
-      } else {
-        selectedIds.add(id);
-      }
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
       renderNews();
       updateBtn();
       log("选择 " + selectedIds.size + " 条");
@@ -137,34 +129,32 @@
       const btn = document.getElementById("sendBtn");
       btn.disabled = true;
       btn.textContent = "发送中...";
-      log("发送到 VPS...");
+      log("发送到 Webhook...");
       
       try {
-        const res = await fetch(VPS_ENDPOINT, {
+        const res = await fetch(ENDPOINT, {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify(data)
         });
-        const result = await res.json();
-        if (result.ok) {
+        
+        if (res.status === 200) {
           log("✅ 发送成功!");
           btn.textContent = "✅ 已发送 - 等待 Bot 回复";
           btn.style.background = "#333";
         } else {
-          log("❌ 失败：" + result.error);
+          log("❌ 状态码：" + res.status);
           btn.disabled = false;
           btn.textContent = "🔄 重试";
         }
       } catch (e) {
-        log("❌ 网络错误：" + e.message);
+        log("❌ 错误：" + e.message);
         btn.disabled = false;
         btn.textContent = "🔄 重试";
       }
     }
     
-    // 绑定事件
     document.getElementById("sendBtn").onclick = send;
-    
     document.getElementById("categoryFilter").onclick = function(e) {
       if (e.target.classList.contains("category-btn")) {
         document.querySelectorAll(".category-btn").forEach(function(b) { b.classList.remove("active"); });
@@ -174,7 +164,6 @@
       }
     };
     
-    // 初始渲染
     log("开始渲染...");
     renderNews();
     log("初始化完成");
