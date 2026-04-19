@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>新闻推荐 - 外部端点版</title>
+  <title>新闻推荐</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,13 +22,12 @@
     .submit-area { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; border-top: 1px solid #333; padding: 16px; }
     .btn { background: #00ff88; color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; margin: 8px 0; }
     .btn:disabled { opacity: 0.5; }
-    .btn-secondary { background: #333; color: #fff; }
     .log { background: #000; padding: 8px; border-radius: 6px; font-size: 10px; color: #0f0; margin-top: 12px; max-height: 100px; overflow-y: auto; }
   </style>
 </head>
 <body>
   <h1>📰 新闻推荐</h1>
-  <div class="status" id="status">✅ 已连接 Telegram | 用户：<span id="userName">...</span></div>
+  <div class="status">✅ 数据发送到 Webhook | <a href="https://webhook.site/105b6159-c20c-4212-ada3-091967d4df4d" target="_blank" style="color:#00ff88">查看数据</a></div>
   
   <div class="category-filter" id="categoryFilter">
     <button class="category-btn active" data-category="all">全部</button>
@@ -41,14 +40,13 @@
   
   <div class="submit-area">
     <div style="margin-bottom:12px">已选择 <span id="selectedCount" style="color:#00ff88;font-weight:bold">0</span> 条</div>
-    <button class="btn" id="sendBtn" disabled>📡 发送到外部端点</button>
-    <button class="btn btn-secondary" id="tgBtn" disabled>📨 尝试 Telegram sendData</button>
+    <button class="btn" id="sendBtn" disabled>📡 发送选择</button>
     <div class="log" id="log"></div>
   </div>
 
   <script>
     const tg = window.Telegram.WebApp;
-    const EXTERNAL_ENDPOINT = "https://httpbin.org/post";
+    const WEBHOOK_URL = "https://webhook.site/105b6159-c20c-4212-ada3-091967d4df4d";
     const logs = [];
     
     function log(msg) {
@@ -58,7 +56,6 @@
     
     tg.ready(); tg.expand();
     const user = tg.initDataUnsafe?.user || {};
-    document.getElementById("userName").textContent = user.username || user.first_name || "unknown";
     log("初始化完成");
     
     const newsData = [
@@ -89,10 +86,9 @@
       const c = selectedIds.size;
       document.getElementById("selectedCount").textContent = c;
       document.getElementById("sendBtn").disabled = c === 0;
-      document.getElementById("tgBtn").disabled = c === 0;
     }
     
-    async function sendToExternal() {
+    async function send() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
       const data = {
         type: "news_selection",
@@ -103,40 +99,26 @@
       
       const btn = document.getElementById("sendBtn");
       btn.disabled = true; btn.textContent = "发送中...";
-      log("发送到外部端点...");
+      log("发送到 Webhook...");
       
       try {
-        const res = await fetch(EXTERNAL_ENDPOINT, {
+        const res = await fetch(WEBHOOK_URL, {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify(data)
         });
-        const result = await res.json();
-        log("✅ 发送成功!");
-        log(`状态码：${res.status}`);
-        btn.textContent = "✅ 已发送";
-        btn.className = "btn btn-secondary";
-        
-        // 显示结果
-        setTimeout(() => {
-          log("请查看 httpbin.org 返回的数据");
-          log("我来监控并回复你!");
-        }, 2000);
+        log(`✅ 发送成功！状态码：${res.status}`);
+        btn.textContent = "✅ 已发送 - 等待回复";
+        btn.className = "btn";
+        btn.style.background = "#333";
+        log("请等待 Bot 回复...");
       } catch (e) {
         log(`❌ 失败：${e.message}`);
         btn.disabled = false; btn.textContent = "🔄 重试";
       }
     }
     
-    function sendToTelegram() {
-      const selected = newsData.filter(n => selectedIds.has(n.id));
-      const data = { type: "news_selection", selected };
-      try { tg.sendData(JSON.stringify(data)); log("✅ sendData 调用成功"); setTimeout(()=>tg.close(),1500); }
-      catch(e) { log(`❌ sendData 失败：${e.message}`); }
-    }
-    
-    document.getElementById("sendBtn").onclick = sendToExternal;
-    document.getElementById("tgBtn").onclick = sendToTelegram;
+    document.getElementById("sendBtn").onclick = send;
     document.getElementById("categoryFilter").onclick = e => {
       if (e.target.classList.contains("category-btn")) {
         document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
