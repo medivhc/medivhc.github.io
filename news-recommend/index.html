@@ -31,9 +31,10 @@
     .selected-count span { color: #00ff88; font-weight: bold; }
     .submit-btn { background: #00ff88; color: #000; border: none; padding: 12px 32px; border-radius: 24px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; max-width: 300px; }
     .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .status { font-size: 12px; color: #888; text-align: center; }
+    .status { font-size: 12px; color: #888; text-align: center; min-height: 18px; }
     .status.success { color: #00ff88; }
     .status.error { color: #ff4444; }
+    .tip { background: rgba(0,255,136,0.1); border: 1px solid #00ff88; border-radius: 8px; padding: 12px; margin-top: 20px; font-size: 13px; color: #00ff88; }
   </style>
 </head>
 <body>
@@ -42,6 +43,11 @@
       <h1>📰 新闻推荐</h1>
       <p>选择你感兴趣的新闻，获取个性化推荐</p>
     </div>
+    
+    <div class="tip" id="tipBox">
+      💡 提示：请在 Telegram 内打开此页面以获得最佳体验
+    </div>
+    
     <div class="category-filter" id="categoryFilter">
       <button class="category-btn active" data-category="all">全部</button>
       <button class="category-btn" data-category="ai">AI</button>
@@ -52,6 +58,7 @@
     </div>
     <div class="news-list" id="newsList"></div>
   </div>
+  
   <div class="submit-bar">
     <div class="selected-count">已选择 <span id="selectedCount">0</span> 条</div>
     <button class="submit-btn" id="submitBtn" disabled>提交选择</button>
@@ -60,15 +67,20 @@
 
   <script>
     const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+    const BOT_USERNAME = 'medivhc_ai_bot';
     
-    // 获取用户 ID
-    const user = tg.initDataUnsafe?.user;
-    const userId = user?.id || 'unknown';
-    const username = user?.username || 'unknown';
+    // 检测是否在 Telegram 内
+    const isInTelegram = !!tg.initDataUnsafe?.user;
+    const user = tg.initDataUnsafe?.user || {};
     
-    console.log('Telegram WebApp 初始化', { userId, username });
+    console.log('初始化', { isInTelegram, user });
+    
+    // 隐藏提示框如果在 Telegram 内
+    if (isInTelegram) {
+      document.getElementById('tipBox').style.display = 'none';
+      tg.ready();
+      tg.expand();
+    }
     
     let newsData = [], selectedIds = new Set(), currentCategory = 'all';
     
@@ -100,11 +112,7 @@
     }
     
     function toggleSelect(id) {
-      if (selectedIds.has(id)) {
-        selectedIds.delete(id);
-      } else {
-        selectedIds.add(id);
-      }
+      selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
       renderNews();
       updateSubmitBar();
     }
@@ -121,42 +129,61 @@
       el.className = 'status ' + type;
     }
     
-    async function submitSelection() {
+    function buildData() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
-      const data = {
+      return {
         type: 'news_selection',
-        user: { id: userId, username: username },
+        user: { id: user.id, username: user.username || 'unknown' },
         selected: selected.map(n => ({ id: n.id, title: n.title, category: n.category })),
         timestamp: Date.now()
       };
-      
+    }
+    
+    async function submitSelection() {
+      const data = buildData();
       const btn = document.getElementById('submitBtn');
       btn.disabled = true;
       btn.textContent = '发送中...';
       
-      try {
-        // 方案 1: 尝试 sendData
-        if (tg.sendData) {
-          tg.sendData(JSON.stringify(data));
-          setStatus('数据已发送，页面将关闭...', 'success');
-          setTimeout(() => tg.close(), 1500);
-        } else {
-          throw new Error('sendData 不可用');
-        }
-      } catch (e) {
-        console.error('sendData 失败:', e);
-        // 方案 2: 使用 Telegram Link 发送消息
+      // 方案 1: 在 Telegram 内使用 sendData
+      if (isInTelegram && tg.sendData) {
         try {
-          const encoded = encodeURIComponent(JSON.stringify(data));
-          const link = `https://t.me/medivhc_ai_bot?start=selection_${btoa(JSON.stringify(data))}`;
-          window.location.href = link;
-          setStatus('正在跳转到 Bot...', 'success');
-        } catch (e2) {
-          console.error('方案 2 失败:', e2);
-          // 方案 3: 显示数据让用户复制
-          setStatus('发送失败，请截图保存：' + JSON.stringify(data, null, 2), 'error');
+          tg.sendData(JSON.stringify(data));
+          setStatus('✅ 已发送！页面将关闭...', 'success');
+          setTimeout(() => tg.close(), 1500);
+          return;
+        } catch (e) {
+          console.error('sendData 失败:', e);
         }
       }
+      
+      // 方案 2: 使用 Telegram Deep Link
+      try {
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+        const link = `https://t.me/${BOT_USERNAME}?start=${encoded}`;
+        
+        if (isInTelegram) {
+          tg.switchInlineQuery(encoded, ['users', 'groups']);
+          setStatus('✅ 正在发送...', 'success');
+          setTimeout(() => tg.close(), 1000);
+        } else {
+          window.location.href = link;
+          setStatus('✅ 正在跳转到 Telegram...', 'success');
+        }
+        return;
+      } catch (e) {
+        console.error('方案 2 失败:', e);
+      }
+      
+      // 方案 3: 显示数据
+      setStatus('📋 选择内容：' + data.selected.map(s => s.title).join(', '), 'success');
+      btn.textContent = '已提交';
+      
+      // 复制到剪贴板
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+        setStatus('✅ 已复制到剪贴板，请发送给 @medivhc_ai_bot', 'success');
+      } catch (e) {}
     }
     
     document.getElementById('submitBtn').addEventListener('click', submitSelection);
