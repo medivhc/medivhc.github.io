@@ -13,10 +13,10 @@
     .category-filter { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; margin-bottom: 20px; }
     .category-btn { flex-shrink: 0; padding: 8px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 20px; color: #fff; font-size: 13px; cursor: pointer; }
     .category-btn.active { background: #00ff88; color: #000; }
-    .news-list { display: flex; flex-direction: column; gap: 12px; }
+    .news-list { display: flex; flex-direction: column; gap: 12px; min-height: 100px; }
     .news-item { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 14px; display: flex; gap: 12px; }
     .news-item.selected { border-color: #00ff88; background: rgba(0,255,136,0.1); }
-    .news-checkbox { width: 24px; height: 24px; border: 2px solid #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .news-checkbox { width: 24px; height: 24px; border: 2px solid #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .news-checkbox.checked { background: #00ff88; }
     .news-checkbox.checked::after { content: "✓"; color: #000; font-weight: bold; }
     .submit-area { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; border-top: 1px solid #333; padding: 16px; }
@@ -28,26 +28,42 @@
 <body>
   <h1>📰 新闻推荐</h1>
   <div class="status">✅ 数据发送到 VPS | 我来监控并回复</div>
+  
   <div class="category-filter" id="categoryFilter">
     <button class="category-btn active" data-category="all">全部</button>
     <button class="category-btn" data-category="ai">AI</button>
     <button class="category-btn" data-category="tech">科技</button>
     <button class="category-btn" data-category="finance">财经</button>
   </div>
-  <div class="news-list" id="newsList"></div>
+  
+  <div class="news-list" id="newsList">
+    <div style="text-align:center;padding:40px;color:#888">加载中...</div>
+  </div>
+  
   <div class="submit-area">
     <div style="margin-bottom:12px">已选择 <span id="selectedCount" style="color:#00ff88;font-weight:bold">0</span> 条</div>
     <button class="btn" id="sendBtn" disabled>📡 发送选择</button>
     <div class="log" id="log"></div>
   </div>
+
   <script>
     const tg = window.Telegram.WebApp;
     const VPS_ENDPOINT = "http://192.3.53.155:8899/receive";
     const logs = [];
-    function log(msg) { logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg); document.getElementById("log").textContent = logs.join("\n"); }
-    tg.ready(); tg.expand();
+    
+    function log(msg) {
+      logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg);
+      document.getElementById("log").textContent = logs.join("\n");
+      console.log("[NewsApp]", msg);
+    }
+    
+    tg.ready();
+    tg.expand();
+    log("Telegram SDK 初始化");
+    
     const user = tg.initDataUnsafe?.user || {};
-    log("初始化完成");
+    log("用户：" + (user.username || user.first_name || "unknown"));
+    
     const newsData = [
       {id:"1", title:"OpenAI 发布 GPT-4o 新版本", source:"TechCrunch", category:"ai"},
       {id:"2", title:"苹果 WWDC 2024 即将召开", source:"The Verge", category:"tech"},
@@ -58,29 +74,110 @@
       {id:"7", title:"特斯拉 FSD V12 推送", source:"Electrek", category:"tech"},
       {id:"8", title:"Midjourney V6 发布", source:"Midjourney", category:"ai"}
     ];
-    let selectedIds = new Set(), currentCategory = "all";
+    
+    log("新闻数据：" + newsData.length + " 条");
+    
+    let selectedIds = new Set();
+    let currentCategory = "all";
+    
     function renderNews() {
+      const newsListEl = document.getElementById("newsList");
+      if (!newsListEl) {
+        log("错误：找不到 newsList 元素");
+        return;
+      }
+      
       const filtered = currentCategory === "all" ? newsData : newsData.filter(n => n.category === currentCategory);
-      document.getElementById("newsList").innerHTML = filtered.map(n => '<div class="news-item ' + (selectedIds.has(n.id)?"selected":"") + '" onclick="toggle('' + n.id + '')"><div class="news-checkbox ' + (selectedIds.has(n.id)?"checked":"") + '"></div><div><div style="font-weight:500">' + n.title + '</div><div style="font-size:11px;color:#888">' + n.source + ' · ' + n.category + '</div></div></div>').join("");
+      log("渲染：" + filtered.length + " 条新闻 (分类：" + currentCategory + ")");
+      
+      if (filtered.length === 0) {
+        newsListEl.innerHTML = '<div style="text-align:center;padding:40px;color:#888">暂无新闻</div>';
+        return;
+      }
+      
+      newsListEl.innerHTML = filtered.map(function(n) {
+        const isSelected = selectedIds.has(n.id) ? "selected" : "";
+        const isChecked = selectedIds.has(n.id) ? "checked" : "";
+        return '<div class="news-item ' + isSelected + '" onclick="toggle(\'' + n.id + '\')">' +
+          '<div class="news-checkbox ' + isChecked + '"></div>' +
+          '<div>' +
+            '<div style="font-weight:500">' + n.title + '</div>' +
+            '<div style="font-size:11px;color:#888">' + n.source + ' · ' + n.category + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join("");
     }
-    function toggle(id) { selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id); renderNews(); updateBtn(); }
-    function updateBtn() { const c = selectedIds.size; document.getElementById("selectedCount").textContent = c; document.getElementById("sendBtn").disabled = c === 0; }
+    
+    function toggle(id) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      renderNews();
+      updateBtn();
+      log("选择 " + selectedIds.size + " 条");
+    }
+    
+    function updateBtn() {
+      const c = selectedIds.size;
+      document.getElementById("selectedCount").textContent = c;
+      document.getElementById("sendBtn").disabled = c === 0;
+    }
+    
     async function send() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
-      const data = { type: "news_selection", user: { id: user.id, username: user.username }, selected: selected.map(n => ({ id: n.id, title: n.title, category: n.category })), timestamp: Date.now() };
+      const data = {
+        type: "news_selection",
+        user: { id: user.id, username: user.username },
+        selected: selected.map(function(n) { return { id: n.id, title: n.title, category: n.category }; }),
+        timestamp: Date.now()
+      };
+      
       const btn = document.getElementById("sendBtn");
-      btn.disabled = true; btn.textContent = "发送中...";
+      btn.disabled = true;
+      btn.textContent = "发送中...";
       log("发送到 VPS...");
+      
       try {
-        const res = await fetch(VPS_ENDPOINT, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
+        const res = await fetch(VPS_ENDPOINT, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(data)
+        });
         const result = await res.json();
-        if (result.ok) { log("✅ 发送成功!"); btn.textContent = "✅ 已发送 - 等待 Bot 回复"; btn.style.background = "#333"; }
-        else { log("❌ 失败：" + result.error); btn.disabled = false; btn.textContent = "🔄 重试"; }
-      } catch (e) { log("❌ 网络错误：" + e.message); btn.disabled = false; btn.textContent = "🔄 重试"; }
+        if (result.ok) {
+          log("✅ 发送成功!");
+          btn.textContent = "✅ 已发送 - 等待 Bot 回复";
+          btn.style.background = "#333";
+        } else {
+          log("❌ 失败：" + result.error);
+          btn.disabled = false;
+          btn.textContent = "🔄 重试";
+        }
+      } catch (e) {
+        log("❌ 网络错误：" + e.message);
+        btn.disabled = false;
+        btn.textContent = "🔄 重试";
+      }
     }
+    
+    // 绑定事件
     document.getElementById("sendBtn").onclick = send;
-    document.getElementById("categoryFilter").onclick = e => { if (e.target.classList.contains("category-btn")) { document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active")); e.target.classList.add("active"); currentCategory = e.target.dataset.category; renderNews(); } };
+    
+    document.getElementById("categoryFilter").onclick = function(e) {
+      if (e.target.classList.contains("category-btn")) {
+        document.querySelectorAll(".category-btn").forEach(function(b) { b.classList.remove("active"); });
+        e.target.classList.add("active");
+        currentCategory = e.target.dataset.category;
+        renderNews();
+      }
+    };
+    
+    // 初始渲染
+    log("开始渲染...");
     renderNews();
+    log("初始化完成");
   </script>
 </body>
 </html>
