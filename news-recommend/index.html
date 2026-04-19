@@ -27,7 +27,7 @@
 </head>
 <body>
   <h1>📰 新闻推荐</h1>
-  <div class="status">✅ HTTPS | 发送后我来查看数据</div>
+  <div class="status">✅ 实时轮询 | 自动回复</div>
   <div class="category-filter" id="categoryFilter">
     <button class="category-btn active" data-category="all">全部</button>
     <button class="category-btn" data-category="ai">AI</button>
@@ -42,13 +42,12 @@
   </div>
   <script>
     const tg = window.Telegram.WebApp;
-    const ENDPOINT = "https://httpbin.org/post";
+    const ENDPOINT = "https://webhook.site/c35778b9-7597-4b7d-aa7f-15192e10c20b";
     const logs = [];
-    function log(msg) { logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg); document.getElementById("log").textContent = logs.join("\n"); console.log("[NewsApp]", msg); }
+    function log(msg) { logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg); document.getElementById("log").textContent = logs.join("\n"); }
     tg.ready(); tg.expand();
-    log("Telegram SDK 初始化");
+    log("初始化...");
     const user = tg.initDataUnsafe?.user || {};
-    log("用户：" + (user.username || user.first_name || "unknown"));
     const newsData = [
       {id:"1", title:"OpenAI 发布 GPT-4o 新版本", source:"TechCrunch", category:"ai"},
       {id:"2", title:"苹果 WWDC 2024 即将召开", source:"The Verge", category:"tech"},
@@ -59,12 +58,10 @@
       {id:"7", title:"特斯拉 FSD V12 推送", source:"Electrek", category:"tech"},
       {id:"8", title:"Midjourney V6 发布", source:"Midjourney", category:"ai"}
     ];
-    log("新闻数据：" + newsData.length + " 条");
     let selectedIds = new Set(), currentCategory = "all";
     function renderNews() {
       const el = document.getElementById("newsList");
       const filtered = currentCategory === "all" ? newsData : newsData.filter(n => n.category === currentCategory);
-      log("渲染：" + filtered.length + " 条");
       if (!filtered.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#888">暂无</div>'; return; }
       el.innerHTML = filtered.map(function(n) {
         return '<div class="news-item ' + (selectedIds.has(n.id)?"selected":"") + '" onclick="toggle(\'' + n.id + '\')">' +
@@ -73,22 +70,23 @@
           '<div style="font-size:11px;color:#888">' + n.source + ' · ' + n.category + '</div></div></div>';
       }).join("");
     }
-    function toggle(id) { if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id); renderNews(); updateBtn(); log("选择 "+selectedIds.size+" 条"); }
+    function toggle(id) { if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id); renderNews(); updateBtn(); }
     function updateBtn() { document.getElementById("selectedCount").textContent = selectedIds.size; document.getElementById("sendBtn").disabled = selectedIds.size === 0; }
     async function send() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
       const data = { type: "news_selection", user: { id: user.id, username: user.username }, selected: selected.map(function(n){ return {id:n.id,title:n.title,category:n.category}; }), timestamp: Date.now() };
       const btn = document.getElementById("sendBtn");
       btn.disabled = true; btn.textContent = "发送中...";
-      log("发送到 httpbin.org...");
+      log("发送到 Webhook...");
       try {
-        const res = await fetch(ENDPOINT, { method: "POST", headers: {"Content-Type": "application/json"}, mode: "cors", body: JSON.stringify(data) });
-        const result = await res.json();
-        log("✅ 状态码：" + res.status);
-        log("数据已发送！请等待 Bot 回复...");
-        btn.textContent = "✅ 已发送"; btn.style.background = "#333";
-        // 显示发送的数据
-        log("发送内容：" + JSON.stringify(data).substring(0, 100) + "...");
+        const res = await fetch(ENDPOINT, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
+        if (res.status === 200) {
+          log("✅ 发送成功！等待 Bot 回复...");
+          btn.textContent = "✅ 已发送"; btn.style.background = "#333";
+        } else {
+          log("❌ 状态码：" + res.status);
+          btn.disabled = false; btn.textContent = "🔄 重试";
+        }
       } catch (e) {
         log("❌ 错误：" + e.message);
         btn.disabled = false; btn.textContent = "🔄 重试";
@@ -101,7 +99,8 @@
         e.target.classList.add("active"); currentCategory = e.target.dataset.category; renderNews();
       }
     };
-    log("开始渲染..."); renderNews(); log("初始化完成");
+    renderNews();
+    log("就绪");
   </script>
 </body>
 </html>
