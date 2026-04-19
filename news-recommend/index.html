@@ -7,7 +7,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a0f; color: #fff; font-family: -apple-system, sans-serif; padding: 16px; padding-bottom: 140px; }
+    body { background: #0a0a0f; color: #fff; font-family: -apple-system, sans-serif; padding: 16px; padding-bottom: 200px; }
     h1 { color: #00ff88; margin-bottom: 8px; }
     .status { background: #1a1a2e; padding: 10px; border-radius: 8px; margin: 16px 0; font-size: 12px; border-left: 3px solid #00ff88; }
     .category-filter { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; margin-bottom: 20px; }
@@ -22,12 +22,13 @@
     .submit-area { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; border-top: 1px solid #333; padding: 16px; }
     .btn { background: #00ff88; color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; margin: 8px 0; }
     .btn:disabled { opacity: 0.5; }
-    .log { background: #000; padding: 8px; border-radius: 6px; font-size: 10px; color: #0f0; margin-top: 12px; max-height: 100px; overflow-y: auto; }
+    .log { background: #000; padding: 8px; border-radius: 6px; font-size: 10px; color: #0f0; margin-top: 12px; max-height: 150px; overflow-y: auto; }
+    .result { background: #1a1a2e; padding: 8px; border-radius: 6px; font-size: 10px; color: #0ff; margin-top: 8px; max-height: 100px; overflow-y: auto; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <h1>📰 新闻推荐</h1>
-  <div class="status">✅ 实时轮询 | 自动回复</div>
+  <div class="status">✅ httpbin.org | 发送后查看返回数据</div>
   <div class="category-filter" id="categoryFilter">
     <button class="category-btn active" data-category="all">全部</button>
     <button class="category-btn" data-category="ai">AI</button>
@@ -39,12 +40,14 @@
     <div style="margin-bottom:12px">已选择 <span id="selectedCount" style="color:#00ff88;font-weight:bold">0</span> 条</div>
     <button class="btn" id="sendBtn" disabled>📡 发送选择</button>
     <div class="log" id="log"></div>
+    <div class="result" id="result"></div>
   </div>
   <script>
     const tg = window.Telegram.WebApp;
-    const ENDPOINT = "https://webhook.site/c35778b9-7597-4b7d-aa7f-15192e10c20b";
+    const ENDPOINT = "https://httpbin.org/anything";
     const logs = [];
     function log(msg) { logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg); document.getElementById("log").textContent = logs.join("\n"); }
+    function showResult(data) { document.getElementById("result").textContent = JSON.stringify(data, null, 2); }
     tg.ready(); tg.expand();
     log("初始化...");
     const user = tg.initDataUnsafe?.user || {};
@@ -77,19 +80,26 @@
       const data = { type: "news_selection", user: { id: user.id, username: user.username }, selected: selected.map(function(n){ return {id:n.id,title:n.title,category:n.category}; }), timestamp: Date.now() };
       const btn = document.getElementById("sendBtn");
       btn.disabled = true; btn.textContent = "发送中...";
-      log("发送到 Webhook...");
+      log("发送到 httpbin.org...");
       try {
-        const res = await fetch(ENDPOINT, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data) });
-        if (res.status === 200) {
-          log("✅ 发送成功！等待 Bot 回复...");
-          btn.textContent = "✅ 已发送"; btn.style.background = "#333";
-        } else {
-          log("❌ 状态码：" + res.status);
-          btn.disabled = false; btn.textContent = "🔄 重试";
-        }
+        const res = await fetch(ENDPOINT, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          mode: "cors",
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        log("✅ 状态码：" + res.status);
+        log("✅ 数据已发送!");
+        btn.textContent = "✅ 已发送";
+        btn.style.background = "#333";
+        // 显示返回数据
+        showResult(result);
+        log("请截图发送的数据和返回给 Bot 查看");
       } catch (e) {
         log("❌ 错误：" + e.message);
-        btn.disabled = false; btn.textContent = "🔄 重试";
+        btn.disabled = false;
+        btn.textContent = "🔄 重试";
       }
     }
     document.getElementById("sendBtn").onclick = send;
