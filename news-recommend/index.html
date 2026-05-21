@@ -270,31 +270,36 @@
       btn.textContent = "发送中...";
       log("发送到 VPS...");
 
-      // 测试端点（HTTPS）- 数据会显示在 https://webhook.site/6d3c3160-58b2-4047-bd58-e9f80c08a889
-      const ENDPOINT = "https://webhook.site/6d3c3160-58b2-4047-bd58-e9f80c08a889";
+      // 测试端点：httpbin.org (支持跨域，返回收到的数据)
+      const ENDPOINT = "https://httpbin.org/post";
 
       try {
+        // 使用简单请求 (Simple Request) 避免 CORS Preflight 被拦截
+        // 不设置 Content-Type，默认 text/plain，浏览器直接发送 POST
         const res = await fetch(ENDPOINT, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          mode: "cors",
           body: JSON.stringify(data)
         });
 
         if (res.ok) {
-          log("✅ 发送成功！等待 Bot 回复...");
+          const result = await res.json();
+          log("✅ 发送成功！");
+          // 显示收到的数据摘要
+          log("响应: " + (result.json ? "数据已到达服务器" : "未知响应"));
+          
           btn.classList.remove("sending");
           btn.classList.add("success");
           btn.textContent = "✅ 已发送";
           showToast("发送成功！");
-          // 1 秒后重置
+
+          // 3 秒后重置
           setTimeout(() => {
             selectedIds.clear();
             renderNews();
             updateBtn();
             btn.classList.remove("success");
             btn.textContent = "📡 发送选择";
-          }, 2000);
+          }, 3000);
         } else {
           log("❌ 状态码: " + res.status);
           showToast("发送失败: " + res.status);
