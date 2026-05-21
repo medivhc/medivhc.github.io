@@ -2,104 +2,332 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>新闻推荐</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0f">
+  <title>📰 新闻推荐</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a0f; color: #fff; font-family: -apple-system, sans-serif; padding: 16px; padding-bottom: 140px; }
-    h1 { color: #00ff88; margin-bottom: 8px; }
-    .status { background: #1a1a2e; padding: 10px; border-radius: 8px; margin: 16px 0; font-size: 12px; border-left: 3px solid #00ff88; }
-    .category-filter { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; margin-bottom: 20px; }
-    .category-btn { flex-shrink: 0; padding: 8px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 20px; color: #fff; font-size: 13px; cursor: pointer; }
-    .category-btn.active { background: #00ff88; color: #000; }
-    .news-list { display: flex; flex-direction: column; gap: 12px; min-height: 100px; }
-    .news-item { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 14px; display: flex; gap: 12px; }
-    .news-item.selected { border-color: #00ff88; background: rgba(0,255,136,0.1); }
-    .news-checkbox { width: 24px; height: 24px; border: 2px solid #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-    .news-checkbox.checked { background: #00ff88; }
-    .news-checkbox.checked::after { content: "✓"; color: #000; font-weight: bold; }
-    .submit-area { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; border-top: 1px solid #333; padding: 16px; }
-    .btn { background: #00ff88; color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; margin: 8px 0; }
-    .btn:disabled { opacity: 0.5; }
-    .log { background: #000; padding: 8px; border-radius: 6px; font-size: 10px; color: #0f0; margin-top: 12px; max-height: 100px; overflow-y: auto; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; min-height: 100vh; background: #0a0a0f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; touch-action: manipulation; }
+    body { padding: 16px; padding-bottom: 160px; }
+
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .header h1 { color: #00ff88; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+    .header .refresh-btn { background: #1a1a2e; border: 1px solid #333; color: #00ff88; padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; }
+    .header .refresh-btn:active { transform: scale(0.95); }
+
+    .status { background: #1a1a2e; padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 12px; border-left: 3px solid #00ff88; display: flex; align-items: center; gap: 8px; }
+    .status .dot { width: 8px; height: 8px; background: #00ff88; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .category-filter { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; margin-bottom: 16px; scrollbar-width: none; }
+    .category-filter::-webkit-scrollbar { display: none; }
+    .category-btn { flex-shrink: 0; padding: 8px 14px; background: #1a1a2e; border: 1px solid #333; border-radius: 20px; color: #888; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+    .category-btn.active { background: #00ff88; color: #000; border-color: #00ff88; font-weight: 500; }
+    .category-btn .count { background: rgba(255,255,255,0.15); padding: 1px 6px; border-radius: 10px; font-size: 11px; margin-left: 4px; }
+    .category-btn.active .count { background: rgba(0,0,0,0.2); }
+
+    .news-list { display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
+    .loading { text-align: center; padding: 60px 20px; color: #888; }
+    .loading .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top-color: #00ff88; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .news-item { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 12px; display: flex; gap: 10px; align-items: flex-start; cursor: pointer; transition: all 0.2s; }
+    .news-item:active { transform: scale(0.98); }
+    .news-item.selected { border-color: #00ff88; background: rgba(0,255,136,0.08); }
+    .news-checkbox { width: 22px; height: 22px; border: 2px solid #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; margin-top: 2px; transition: all 0.2s; }
+    .news-checkbox.checked { background: #00ff88; border-color: #00ff88; }
+    .news-checkbox.checked::after { content: "✓"; color: #000; font-weight: bold; font-size: 14px; }
+    .news-content { flex: 1; min-width: 0; }
+    .news-title { font-size: 14px; font-weight: 500; line-height: 1.4; margin-bottom: 4px; word-break: break-word; }
+    .news-meta { font-size: 11px; color: #666; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .news-source { color: #00d4ff; }
+    .news-score { color: #ffcc00; }
+    .news-category { background: #333; padding: 2px 8px; border-radius: 10px; font-size: 10px; text-transform: uppercase; }
+    .news-category.ai { background: rgba(0,255,136,0.2); color: #00ff88; }
+    .news-category.tech { background: rgba(0,212,255,0.2); color: #00d4ff; }
+    .news-category.finance { background: rgba(255,204,0,0.2); color: #ffcc00; }
+
+    .submit-area { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, #1a1a2e 80%, rgba(26,26,46,0)); padding: 16px; border-top: 1px solid #333; }
+    .btn { background: #00ff88; color: #000; border: none; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 8px; transition: all 0.2s; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn.sending { background: #333; color: #888; }
+    .btn.success { background: #00ff88; color: #000; }
+
+    .log { background: #000; padding: 8px 10px; border-radius: 8px; font-size: 10px; color: #0f0; margin-top: 8px; max-height: 80px; overflow-y: auto; font-family: monospace; }
+
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #00ff88; color: #000; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; opacity: 0; transition: all 0.3s; z-index: 1000; }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
   </style>
 </head>
 <body>
-  <h1>📰 新闻推荐</h1>
-  <div class="status">✅ HTTPS 轮询 | 自动回复</div>
-  <div class="category-filter" id="categoryFilter">
-    <button class="category-btn active" data-category="all">全部</button>
-    <button class="category-btn" data-category="ai">AI</button>
-    <button class="category-btn" data-category="tech">科技</button>
-    <button class="category-btn" data-category="finance">财经</button>
+  <div class="header">
+    <h1>📰 新闻推荐</h1>
+    <button class="refresh-btn" id="refreshBtn">🔄 刷新</button>
   </div>
-  <div class="news-list" id="newsList"><div style="text-align:center;padding:40px;color:#888">加载中...</div></div>
+
+  <div class="status">
+    <span class="dot"></span>
+    <span id="statusText">正在加载...</span>
+  </div>
+
+  <div class="category-filter" id="categoryFilter">
+    <button class="category-btn active" data-category="all">全部 <span class="count" id="countAll">0</span></button>
+    <button class="category-btn" data-category="ai">🤖 AI <span class="count" id="countAi">0</span></button>
+    <button class="category-btn" data-category="tech">💻 科技 <span class="count" id="countTech">0</span></button>
+    <button class="category-btn" data-category="finance">💰 财经 <span class="count" id="countFinance">0</span></button>
+    <button class="category-btn" data-category="other">📌 其他 <span class="count" id="countOther">0</span></button>
+  </div>
+
+  <div class="news-list" id="newsList">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div>从 Hacker News 获取最新新闻...</div>
+    </div>
+  </div>
+
   <div class="submit-area">
-    <div style="margin-bottom:12px">已选择 <span id="selectedCount" style="color:#00ff88;font-weight:bold">0</span> 条</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <span style="font-size: 14px;">已选择 <span id="selectedCount" style="color:#00ff88;font-weight:bold">0</span> 条</span>
+      <button class="refresh-btn" id="selectAllBtn" style="font-size: 11px;">全选</button>
+    </div>
     <button class="btn" id="sendBtn" disabled>📡 发送选择</button>
     <div class="log" id="log"></div>
   </div>
+
+  <div class="toast" id="toast"></div>
+
   <script>
+    // Telegram Web App 初始化
     const tg = window.Telegram.WebApp;
-    const ENDPOINT = "https://webhook.site/6d3c3160-58b2-4047-bd58-e9f80c08a889";
+    tg.ready();
+    tg.expand();
+
+    // 日志系统
     const logs = [];
-    function log(msg) { logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg); document.getElementById("log").textContent = logs.join("\n"); }
-    tg.ready(); tg.expand();
-    log("初始化...");
+    function log(msg) {
+      logs.unshift("[" + new Date().toLocaleTimeString() + "] " + msg);
+      document.getElementById("log").textContent = logs.join("\n");
+    }
+
+    // Toast 提示
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
+    }
+
+    // 用户信息
     const user = tg.initDataUnsafe?.user || {};
-    const newsData = [
-      {id:"1", title:"OpenAI 发布 GPT-4o 新版本", source:"TechCrunch", category:"ai"},
-      {id:"2", title:"苹果 WWDC 2024 即将召开", source:"The Verge", category:"tech"},
-      {id:"3", title:"美联储维持利率不变", source:"Reuters", category:"finance"},
-      {id:"4", title:"Claude 3.5 超越 GPT-4", source:"Anthropic", category:"ai"},
-      {id:"5", title:"欧盟通过 AI 法案", source:"BBC", category:"finance"},
-      {id:"6", title:"字节豆包大模型发布", source:"36 氪", category:"china"},
-      {id:"7", title:"特斯拉 FSD V12 推送", source:"Electrek", category:"tech"},
-      {id:"8", title:"Midjourney V6 发布", source:"Midjourney", category:"ai"}
-    ];
-    let selectedIds = new Set(), currentCategory = "all";
+    log("用户: " + (user.first_name || "匿名"));
+
+    // 状态变量
+    let newsData = [];
+    let selectedIds = new Set();
+    let currentCategory = "all";
+
+    // 分类规则
+    function classifyCategory(title, url) {
+      const text = ((title || "") + " " + (url || "")).toLowerCase();
+      if (text.match(/\b(ai|gpt|llm|claude|openai|anthropic|deepseek|agent|machine learning|neural|transformer|diffusion)\b/)) return "ai";
+      if (text.match(/\b(github|code|dev|software|app|programming|rust|python|linux|docker|kubernetes)\b/)) return "tech";
+      if (text.match(/\b(finance|stock|market|crypto|bitcoin|economy|trading|invest|bank|fund)\b/)) return "finance";
+      return "other";
+    }
+
+    // 获取真实新闻
+    async function fetchNews() {
+      document.getElementById("newsList").innerHTML = '<div class="loading"><div class="spinner"></div><div>从 Hacker News 获取最新新闻...</div></div>';
+      document.getElementById("statusText").textContent = "正在获取...";
+      log("开始获取 HN 数据...");
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const topIds = await fetch("https://hacker-news.firebaseio.com/v0/topstories.json", { signal: controller.signal }).then(r => r.json());
+        clearTimeout(timeoutId);
+
+        document.getElementById("statusText").textContent = "下载 " + Math.min(20, topIds.length) + " 条新闻...";
+        log("获取到 " + topIds.length + " 条热门新闻 ID");
+
+        const stories = await Promise.all(topIds.slice(0, 20).map(async (id, index) => {
+          try {
+            const story = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, { signal: controller.signal }).then(r => r.json());
+            if (story && story.title) {
+              let source = "HN";
+              if (story.url) {
+                try { source = new URL(story.url).hostname.replace("www.", "").split(".")[0]; } catch(e) {}
+              }
+              return {
+                id: String(story.id),
+                title: story.title,
+                source: source,
+                category: classifyCategory(story.title, story.url),
+                score: story.score || 0,
+                comments: story.descendants || 0,
+                url: story.url || "https://news.ycombinator.com/item?id=" + story.id,
+                time: story.time ? Math.floor((Date.now() - story.time * 1000) / 60000) : 0
+              };
+            }
+          } catch(e) { return null; }
+        }));
+
+        newsData = stories.filter(s => s !== null);
+        log("成功获取 " + newsData.length + " 条新闻");
+        updateCounts();
+        renderNews();
+        document.getElementById("statusText").textContent = "✅ 已加载 " + newsData.length + " 条 | " + new Date().toLocaleTimeString("zh-CN", {hour: "2-digit", minute: "2-digit"});
+
+      } catch (err) {
+        log("获取失败: " + err.message);
+        document.getElementById("newsList").innerHTML = '<div class="loading" style="color: #ff6666;">❌ 获取失败<br><button class="refresh-btn" onclick="fetchNews()" style="margin-top: 16px;">🔄 重试</button></div>';
+        document.getElementById("statusText").textContent = "获取失败，点击重试";
+      }
+    }
+
+    // 更新分类计数
+    function updateCounts() {
+      const counts = { all: newsData.length, ai: 0, tech: 0, finance: 0, other: 0 };
+      newsData.forEach(n => { if (counts[n.category] !== undefined) counts[n.category]++; });
+      document.getElementById("countAll").textContent = counts.all;
+      document.getElementById("countAi").textContent = counts.ai;
+      document.getElementById("countTech").textContent = counts.tech;
+      document.getElementById("countFinance").textContent = counts.finance;
+      document.getElementById("countOther").textContent = counts.other;
+    }
+
+    // 渲染新闻列表
     function renderNews() {
       const el = document.getElementById("newsList");
       const filtered = currentCategory === "all" ? newsData : newsData.filter(n => n.category === currentCategory);
-      if (!filtered.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#888">暂无</div>'; return; }
-      el.innerHTML = filtered.map(function(n) {
-        return '<div class="news-item ' + (selectedIds.has(n.id)?"selected":"") + '" onclick="toggle(\'" + n.id + "\')">' +
-          '<div class="news-checkbox ' + (selectedIds.has(n.id)?"checked":"") + '"></div>' +
-          '<div><div style="font-weight:500">' + n.title + '</div>' +
-          '<div style="font-size:11px;color:#888">' + n.source + ' · ' + n.category + '</div></div></div>';
+
+      if (!filtered.length) {
+        el.innerHTML = '<div class="loading">暂无该分类新闻</div>';
+        return;
+      }
+
+      el.innerHTML = filtered.map(n => {
+        const isSelected = selectedIds.has(n.id);
+        const timeStr = n.time < 60 ? n.time + "分钟前" : Math.floor(n.time / 60) + "小时前";
+        return `<div class="news-item ${isSelected ? "selected" : ""}" onclick="toggle('${n.id}')">
+          <div class="news-checkbox ${isSelected ? "checked" : ""}"></div>
+          <div class="news-content">
+            <div class="news-title">${n.title}</div>
+            <div class="news-meta">
+              <span class="news-source">${n.source}</span>
+              <span class="news-score">⭐ ${n.score}</span>
+              <span>💬 ${n.comments}</span>
+              <span>🕐 ${timeStr}</span>
+              <span class="news-category ${n.category}">${n.category.toUpperCase()}</span>
+            </div>
+          </div>
+        </div>`;
       }).join("");
     }
-    function toggle(id) { if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id); renderNews(); updateBtn(); }
-    function updateBtn() { document.getElementById("selectedCount").textContent = selectedIds.size; document.getElementById("sendBtn").disabled = selectedIds.size === 0; }
-    async function send() {
+
+    // 切换选择
+    function toggle(id) {
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
+      renderNews();
+      updateBtn();
+    }
+
+    // 更新按钮状态
+    function updateBtn() {
+      document.getElementById("selectedCount").textContent = selectedIds.size;
+      document.getElementById("sendBtn").disabled = selectedIds.size === 0;
+    }
+
+    // 全选/取消全选
+    function toggleSelectAll() {
+      const filtered = currentCategory === "all" ? newsData : newsData.filter(n => n.category === currentCategory);
+      if (selectedIds.size === filtered.length) {
+        selectedIds.clear();
+      } else {
+        filtered.forEach(n => selectedIds.add(n.id));
+      }
+      renderNews();
+      updateBtn();
+    }
+
+    // 发送选择
+    async function sendSelection() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
-      const data = { type: "news_selection", user: { id: user.id, username: user.username }, selected: selected.map(function(n){ return {id:n.id,title:n.title,category:n.category}; }), timestamp: Date.now() };
+      const data = {
+        type: "news_selection",
+        user: { id: user.id, username: user.username, name: user.first_name },
+        selected: selected.map(n => ({ id: n.id, title: n.title, source: n.source, category: n.category, score: n.score, url: n.url })),
+        timestamp: Date.now()
+      };
+
       const btn = document.getElementById("sendBtn");
-      btn.disabled = true; btn.textContent = "发送中...";
-      log("发送到 Webhook...");
+      btn.classList.add("sending");
+      btn.disabled = true;
+      btn.textContent = "发送中...";
+      log("发送到 VPS...");
+
+      // VPS 端点（替换为你的实际端点）
+      const ENDPOINT = "https://192.3.53.155:18080/api/news-selection";
+
       try {
-        const res = await fetch(ENDPOINT, { method: "POST", headers: {"Content-Type": "application/json"}, mode: "cors", body: JSON.stringify(data) });
-        if (res.status === 200) {
+        const res = await fetch(ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          mode: "cors",
+          body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
           log("✅ 发送成功！等待 Bot 回复...");
-          btn.textContent = "✅ 已发送"; btn.style.background = "#333";
+          btn.classList.remove("sending");
+          btn.classList.add("success");
+          btn.textContent = "✅ 已发送";
+          showToast("发送成功！");
+          // 1 秒后重置
+          setTimeout(() => {
+            selectedIds.clear();
+            renderNews();
+            updateBtn();
+            btn.classList.remove("success");
+            btn.textContent = "📡 发送选择";
+          }, 2000);
         } else {
-          log("❌ 状态码：" + res.status);
-          btn.disabled = false; btn.textContent = "🔄 重试";
+          log("❌ 状态码: " + res.status);
+          showToast("发送失败: " + res.status);
+          btn.classList.remove("sending");
+          btn.disabled = false;
+          btn.textContent = "🔄 重试";
         }
       } catch (e) {
-        log("❌ 错误：" + e.message);
-        btn.disabled = false; btn.textContent = "🔄 重试";
+        log("❌ 错误: " + e.message);
+        showToast("网络错误: " + e.message);
+        btn.classList.remove("sending");
+        btn.disabled = false;
+        btn.textContent = "🔄 重试";
       }
     }
-    document.getElementById("sendBtn").onclick = send;
+
+    // 事件绑定
+    document.getElementById("sendBtn").onclick = sendSelection;
+    document.getElementById("selectAllBtn").onclick = toggleSelectAll;
+    document.getElementById("refreshBtn").onclick = () => { selectedIds.clear(); fetchNews(); };
+
     document.getElementById("categoryFilter").onclick = function(e) {
-      if(e.target.classList.contains("category-btn")) {
-        document.querySelectorAll(".category-btn").forEach(function(b){ b.classList.remove("active"); });
-        e.target.classList.add("active"); currentCategory = e.target.dataset.category; renderNews();
+      if (e.target.classList.contains("category-btn") || e.target.parentElement.classList.contains("category-btn")) {
+        const btn = e.target.classList.contains("category-btn") ? e.target : e.target.parentElement;
+        document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentCategory = btn.dataset.category;
+        renderNews();
       }
     };
-    renderNews();
+
+    // 初始化
+    fetchNews();
     log("就绪");
   </script>
 </body>
