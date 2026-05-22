@@ -268,31 +268,50 @@
       btn.classList.add("sending");
       btn.disabled = true;
       btn.textContent = "发送中...";
-      log("发送到 VPS...");
-
-      // 测试端点：httpbin.org (支持跨域，返回收到的数据)
-      const ENDPOINT = "https://httpbin.org/post";
-
+      
+      // 方案 1: 使用 tg.sendData() 直接发送到 Telegram Bot
+      log("方案1: 通过 Telegram sendData 发送...");
+      
       try {
-        // 使用简单请求 (Simple Request) 避免 CORS Preflight 被拦截
-        // 不设置 Content-Type，默认 text/plain，浏览器直接发送 POST
+        if (typeof tg.sendData === 'function') {
+          tg.sendData(JSON.stringify(data));
+          log("✅ sendData 调用成功，等待 Bot 回复...");
+          
+          btn.classList.remove("sending");
+          btn.classList.add("success");
+          btn.textContent = "✅ 已发送";
+          showToast("发送成功！");
+          
+          setTimeout(() => tg.close(), 2000);
+          setTimeout(() => {
+            selectedIds.clear();
+            renderNews();
+            updateBtn();
+            btn.classList.remove("success");
+            btn.textContent = "📡 发送选择";
+          }, 3000);
+          return;
+        }
+      } catch (e) {
+        log("sendData 不可用: " + e.message);
+      }
+      
+      // 方案 2: 备用 VPS 端点
+      log("方案1 失败，回退到 VPS 端点...");
+      const ENDPOINT = "https://fc01a6f5b1d624.lhr.life/receive";
+      
+      try {
         const res = await fetch(ENDPOINT, {
           method: "POST",
           body: JSON.stringify(data)
         });
 
         if (res.ok) {
-          const result = await res.json();
-          log("✅ 发送成功！");
-          // 显示收到的数据摘要
-          log("响应: " + (result.json ? "数据已到达服务器" : "未知响应"));
-          
+          log("✅ VPS 发送成功！等待 Bot 回复...");
           btn.classList.remove("sending");
           btn.classList.add("success");
           btn.textContent = "✅ 已发送";
           showToast("发送成功！");
-
-          // 3 秒后重置
           setTimeout(() => {
             selectedIds.clear();
             renderNews();
