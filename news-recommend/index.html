@@ -255,7 +255,7 @@
     }
 
     // 发送选择
-    async function sendSelection() {
+        async function sendSelection() {
       const selected = newsData.filter(n => selectedIds.has(n.id));
       const data = {
         type: "news_selection",
@@ -269,36 +269,9 @@
       btn.disabled = true;
       btn.textContent = "发送中...";
       
-      // 方案 1: 使用 tg.sendData() 直接发送到 Telegram Bot
-      log("方案1: 通过 Telegram sendData 发送...");
-      
-      try {
-        if (typeof tg.sendData === 'function') {
-          tg.sendData(JSON.stringify(data));
-          log("✅ sendData 调用成功，等待 Bot 回复...");
-          
-          btn.classList.remove("sending");
-          btn.classList.add("success");
-          btn.textContent = "✅ 已发送";
-          showToast("发送成功！");
-          
-          setTimeout(() => tg.close(), 2000);
-          setTimeout(() => {
-            selectedIds.clear();
-            renderNews();
-            updateBtn();
-            btn.classList.remove("success");
-            btn.textContent = "📡 发送选择";
-          }, 3000);
-          return;
-        }
-      } catch (e) {
-        log("sendData 不可用: " + e.message);
-      }
-      
-      // 方案 2: 备用 VPS 端点
-      log("方案1 失败，回退到 VPS 端点...");
+      // 主方案：VPS HTTPS 端点（可靠，收到后通过 Bot API 回复）
       const ENDPOINT = "https://retired-jobs-emacs-jet.trycloudflare.com/receive";
+      log("发送到服务器...");
       
       try {
         const res = await fetch(ENDPOINT, {
@@ -307,18 +280,20 @@
         });
 
         if (res.ok) {
-          log("✅ VPS 发送成功！等待 Bot 回复...");
+          log("✅ 发送成功！等待 Bot 回复...");
           btn.classList.remove("sending");
           btn.classList.add("success");
           btn.textContent = "✅ 已发送";
           showToast("发送成功！");
+          
+          setTimeout(() => tg.close(), 2500);
           setTimeout(() => {
             selectedIds.clear();
             renderNews();
             updateBtn();
             btn.classList.remove("success");
             btn.textContent = "📡 发送选择";
-          }, 3000);
+          }, 4000);
         } else {
           log("❌ 状态码: " + res.status);
           showToast("发送失败: " + res.status);
