@@ -191,7 +191,7 @@ def on_task_completed(ctrl: Controller, ev: dict) -> Result:
                      f"the task may be completed only after the requirement is VERIFIED.")
 
 
-PROTECTED_REL = (".rvd/goal.yaml", ".rvd/policy.yaml", ".rvd/state.db", ".rvd/evidence")
+PROTECTED_REL = (".rvd/goal.yaml", ".rvd/policy.yaml", ".rvd/supervisor.yaml", ".rvd/state.db", ".rvd/evidence")
 _WRITE_OPS = re.compile(r"(>|\btee\b|\bsed\s+-i|\bmv\b|\bcp\b|\brm\b|\btruncate\b|\bperl\s+-p?i|"
                         r"python[0-9.]*\s+-c|\bchmod\b|\bln\b|\btouch\b|\bdd\b)")
 BASH_DENY = [
@@ -201,6 +201,8 @@ BASH_DENY = [
     (re.compile(r"\brvd(\.py)?\b[^|;&]*\bamend\s+approve\b"), re.compile(r".")),
     (re.compile(r"\brvd(\.py)?\b[^|;&]*\b(resume|cancel)\b"), re.compile(r".")),
     (re.compile(r"\brvd(\.py)?\b[^|;&]*--confirm-hard\b"), re.compile(r".")),
+    (re.compile(r"\brvd(\.py)?\b[^|;&]*\bsupervise\s+(run|accept|clear-stop)\b"), re.compile(r".")),
+    (re.compile(r"\.rvd/supervisor\.ya?ml"), _WRITE_OPS),
     (re.compile(r"RVD_ALLOW_AGENT_CONFIRM|RVD_STATE_DIR="), re.compile(r".")),
 ]
 

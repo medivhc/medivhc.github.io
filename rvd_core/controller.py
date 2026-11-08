@@ -528,6 +528,10 @@ class Controller:
             lines.append(f"- `{p['check_id']}/{p['alternative_id']}` ({p['method']}): "
                          f"{'feasible' if p['feasible'] else 'not feasible — ' + p['reason']}; "
                          f"full {cov['full'] or '-'}, partial {cov['partial'] or '-'}")
+        from .supervisor import supervisor_report_markdown  # local import: supervisor depends on controller
+        sup = supervisor_report_markdown(self)
+        if sup:
+            lines += ["", sup]
         lines += ["", "## Next action", "", "```json", json.dumps(s["next"], indent=2, ensure_ascii=False), "```", "",
                   "## Recent events", ""]
         for e in s["recent_events"]:

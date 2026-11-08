@@ -10,3 +10,7 @@ Present: global state, each requirement's status with its evidence or gap, open 
 (with attempts / no-progress), and the next action. Explicitly separate VERIFIED from
 PARTIALLY_VERIFIED / BLOCKED / UNVERIFIED. Run `rvd doctor` if hooks may not be active —
 without hooks there is no session-level completion gate, and you must say so.
+
+If an external supervisor is in use, also show `rvd supervise status` / `rvd supervise report`
+(every dispatch, its outcome, recovery reason and the verification that followed). You may
+`rvd supervise stop` it, but never start it, accept its policy, or clear a stop — those are human-only.

@@ -122,6 +122,7 @@ def test_goal_continues_across_adapters_after_session_exit(tmp_path):
     a = MockAdapter("vendor-a", worker_a, resume=True)
     key_a = c.register_session(a.name, "a-1", resumable=a.capabilities.resume)
     eid = a.start_task({"project_root": str(d), "instruction": "fix R-EDGE"}, build_context(c))
+    assert a.poll_or_wait(eid) == "succeeded"
     c.record_claim("adapter", a.name, a.collect_artifacts(eid)["claim"], key_a)
     c.end_session(key_a, "exited")
     r = c.verify("independent-verifier")
@@ -134,7 +135,7 @@ def test_goal_continues_across_adapters_after_session_exit(tmp_path):
     ctx = build_context(c)
     assert ctx["unmet"] == ["R-EDGE"] and ctx["open_issues"]
     eid = b.start_task({"project_root": str(d), "instruction": "continue"}, ctx)
-    assert b.poll_or_wait(eid) == "finished"
+    assert b.poll_or_wait(eid) == "succeeded"
     assert c.verify("independent-verifier")["state"] == "SATISFIED"
     sessions = {r["session_key"]: r["status"] for r in c.store.q("SELECT * FROM sessions")}
     assert sessions["vendor-a:a-1"] == "exited"
@@ -146,4 +147,5 @@ def test_crashing_worker_is_failed_execution_not_goal_failure(tmp_path):
         raise RuntimeError("api 529")
     m = MockAdapter("x", boom)
     eid = m.start_task({"project_root": str(tmp_path)}, {})
-    assert m.poll_or_wait(eid) == "failed" and "529" in m.collect_artifacts(eid)["claim"]
+    assert m.poll_or_wait(eid) == "interrupted"
+    assert "529" in m.collect_artifacts(eid)["outcome"]["error"]

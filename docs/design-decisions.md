@@ -57,3 +57,25 @@
 12. **Adapters never write authority.** `AgentAdapter` (start/poll/collect/resume/cancel + declared
     capabilities). `MockAdapter` proves hand-off across vendors with `resume=false`;
     `ClaudeCodeHeadlessAdapter` (`claude -p`, `--resume`) is P2 groundwork and untested in CI.
+
+13. **Supervisor authority comes from a separately accepted run policy.** The goal contract says
+    what must be true; `.rvd/supervisor.yaml` says what the supervisor may *spend and grant*
+    (tools, permission mode, budgets). Only a human can accept it, its hash is pinned, and any
+    on-disk change (e.g. a widened tool list) stops the supervisor until re-accepted. Child agent
+    processes get a scrubbed environment (no `RVD_ALLOW_AGENT_CONFIRM` / `RVD_STATE_DIR`).
+
+14. **Outcome classes, not prose.** Adapters classify each execution (succeeded / failed /
+    interrupted / rate_limited / permission_denied / cancelled / timeout). For Claude Code this uses
+    `--output-format stream-json --verbose`: `session_id` is on the first line, so even a SIGKILLed
+    session is resumable; the final `result` line gives `is_error`, `subtype`, `api_error_status`,
+    `permission_denials`, `total_cost_usd`.
+
+15. **Permission denials end automation for that policy version.** The supervisor never retries a
+    denied action with more permissions and never switches adapters to get around it.
+
+16. **Rate limits don't count as failed attempts.** If an execution was rate limited/interrupted
+    and the tree is unchanged, the supervisor only refreshes (no verification), so API trouble
+    doesn't exhaust the issue's no-progress budget; backoff and `max_api_retries` bound it instead.
+
+17. **Lease takeover is host-local.** A dead holder is detected by PID on the same machine. Running
+    two supervisors for one project on different hosts against a shared state dir is unsupported.

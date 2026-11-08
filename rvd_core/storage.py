@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 MIGRATIONS: dict[int, str] = {
     1: """
@@ -60,6 +60,24 @@ MIGRATIONS: dict[int, str] = {
         id TEXT PRIMARY KEY, check_id TEXT NOT NULL, alternative_id TEXT NOT NULL, method TEXT NOT NULL,
         coverage_json TEXT NOT NULL, remaining_gaps_json TEXT NOT NULL, feasible INTEGER NOT NULL,
         reason TEXT NOT NULL, ts TEXT NOT NULL);
+    """,
+    2: """
+    CREATE TABLE supervisor_policy (
+        version INTEGER PRIMARY KEY, policy_json TEXT NOT NULL, policy_hash TEXT NOT NULL,
+        accepted_by TEXT NOT NULL, accepted_at TEXT NOT NULL);
+    CREATE TABLE supervisor_runs (
+        run_id TEXT PRIMARY KEY, pid INTEGER NOT NULL, started_at TEXT NOT NULL, ended_at TEXT,
+        stop_reason TEXT, policy_version INTEGER NOT NULL);
+    CREATE TABLE dispatches (
+        dispatch_id TEXT PRIMARY KEY, sup_run_id TEXT NOT NULL, action_key TEXT NOT NULL, issue_id TEXT,
+        kind TEXT NOT NULL, adapter TEXT NOT NULL, mode TEXT NOT NULL, resumed_from TEXT,
+        execution_id TEXT, session_id TEXT, child_pid INTEGER, status TEXT NOT NULL,
+        started_at TEXT NOT NULL, ended_at TEXT, cost_usd REAL NOT NULL DEFAULT 0, error TEXT,
+        permission_denials TEXT NOT NULL DEFAULT '[]', recovery_reason TEXT NOT NULL DEFAULT '',
+        checkpoint_json TEXT NOT NULL DEFAULT '{}', verify_run_id TEXT, state_after TEXT,
+        policy_version INTEGER NOT NULL);
+    CREATE INDEX dispatches_issue ON dispatches(issue_id, started_at);
+    CREATE INDEX dispatches_key ON dispatches(action_key);
     """,
 }
 

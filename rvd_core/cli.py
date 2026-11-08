@@ -300,6 +300,60 @@ def cmd_doctor(args) -> int:
     return EXIT_OK if ok else EXIT_UNSATISFIED
 
 
+def cmd_supervise(args) -> int:
+    from . import supervisor as sv
+    ctrl = _ctrl(args)
+    try:
+        sc = args.sup_cmd
+        if sc == "accept":
+            res = sv.accept_policy(ctrl, args.by or getpass.getuser())
+            _emit(args, res, f"supervisor policy v{res['version']} accepted" + (" (unchanged)" if res.get("unchanged") else ""))
+            return EXIT_OK
+        if sc == "init-policy":
+            p = ctrl.rvd / sv.POLICY_FILE
+            if p.exists():
+                raise PermissionDenied(f"{p} already exists")
+            import yaml
+            p.write_text("# RVD supervisor run policy. A human must `rvd supervise accept --by <name>` after edits.\n"
+                         + yaml.safe_dump(sv.DEFAULT_POLICY, sort_keys=False), encoding="utf-8")
+            _emit(args, {"created": str(p)}, f"created {p}")
+            return EXIT_OK
+        if sc == "stop":
+            _emit(args, sv.request_stop(ctrl, args.by or getpass.getuser(), args.reason or ""), "stop requested")
+            return EXIT_OK
+        if sc == "clear-stop":
+            _emit(args, sv.clear_stop(ctrl, args.by or getpass.getuser()), "stop flag cleared")
+            return EXIT_OK
+        if sc == "report":
+            md = sv.supervisor_report_markdown(ctrl) or "no supervisor activity yet\n"
+            _emit(args, sv.supervisor_report_rows(ctrl), md)
+            return EXIT_OK
+        if sc == "status":
+            try:
+                ver, pol = sv.accepted_policy(ctrl)
+                pol_info = {"version": ver, "policy": pol}
+            except PermissionDenied as e:
+                pol_info = {"error": str(e)}
+            lease = ctrl.store.q1("SELECT owner, expires_at FROM leases WHERE name='supervisor'")
+            import time as _t
+            data = {"policy": pol_info, "stop_flag": sv.stop_flag(ctrl),
+                    "running": bool(lease and lease["expires_at"] > _t.time()), "lease_owner": lease["owner"] if lease else None,
+                    "runs": [dict(r) for r in ctrl.store.q("SELECT * FROM supervisor_runs ORDER BY started_at DESC LIMIT 5")]}
+            _emit(args, data)
+            return EXIT_OK
+        # run
+        sup = sv.Supervisor(ctrl, poll_interval=args.poll_interval)
+        res = sup.run(max_iterations=args.max_iterations)
+        _emit(args, res, f"supervisor {res['run_id']} stopped: {res['stop_reason']} — goal {res['state']}; "
+                         f"{res['dispatches']} dispatch(es), ${res['cost']:.3f}")
+        return EXIT_OK if res["state"] == "SATISFIED" else EXIT_UNSATISFIED
+    except sv.SupervisorError as e:
+        sys.stderr.write(f"rvd: {e}\n")
+        return EXIT_ERR
+    finally:
+        ctrl.close()
+
+
 def cmd_hook(args) -> int:
     from .hooks import main_stdin
     return main_stdin()
@@ -341,6 +395,17 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("env", help="environment capability snapshot"); s.set_defaults(fn=cmd_env)
     s = sub.add_parser("doctor"); s.set_defaults(fn=cmd_doctor)
     s = sub.add_parser("hook", help="hook entry: reads Claude Code hook JSON on stdin"); s.set_defaults(fn=cmd_hook)
+    s = sub.add_parser("supervise", help="P2 external supervisor (cross-session continuation)")
+    sp = s.add_subparsers(dest="sup_cmd", required=True)
+    sp.add_parser("init-policy", help="write a default .rvd/supervisor.yaml")
+    x = sp.add_parser("accept", help="human: authorize the run policy"); x.add_argument("--by")
+    x = sp.add_parser("run", help="human/operator: run until satisfied, blocked, stopped or out of budget")
+    x.add_argument("--max-iterations", type=int); x.add_argument("--poll-interval", type=float, default=2.0)
+    x = sp.add_parser("stop", help="ask a running supervisor to stop (cancels the current execution)")
+    x.add_argument("--by"); x.add_argument("--reason")
+    x = sp.add_parser("clear-stop", help="human: allow the supervisor to run again"); x.add_argument("--by")
+    sp.add_parser("status"); sp.add_parser("report")
+    s.set_defaults(fn=cmd_supervise)
     return p
 
 

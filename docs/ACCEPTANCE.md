@@ -39,7 +39,7 @@ blocked and asks for the minimal human decision (`live-runs/arm-final-agent-mess
 `live-runs/arm-report.md`).
 
 ## 5. Automated tests (`live-runs/test-output.txt`)
-`python3 -m pytest -q` → **32 passed, 1 skipped** (the skipped one is the opt-in live test).
+`python3 -m pytest -q` → **56 passed, 1 skipped** (the skipped one is the opt-in live test).
 Real vs mock: scenarios A–L run the real CLI and the real hook entry point as subprocesses with
 Claude Code–shaped JSON on stdin; two fixtures are payloads captured from the live sessions above.
 Scenario D uses a **fake `qemu-aarch64`** on PATH (a stub that "passes") to prove a passing
@@ -61,10 +61,28 @@ The live pytest (`RVD_LIVE=1 -m live`) runs a real headless Claude Code session 
 | K duplicate events | `test_K_…` | single count, no duplicate evidence/issues |
 | L cancel | `test_L_…` | CANCELLED; verify/resume refused from automation |
 
-## 6. Known limitations / not done (P1/P2)
-- **P2 not implemented**: no external Supervisor process; nothing restarts a session that exited.
-  `ClaudeCodeHeadlessAdapter` exists but is untested; cross-session continuation today = next
-  SessionStart re-injects the open issues.
+## 6. P2 — external Supervisor (`rvd supervise`, `rvd_core/supervisor.py`)
+
+| P2 acceptance clause | Evidence |
+|---|---|
+| Abnormal session exit → recovered within the user-authorized policy and budget; DB intact | **Live**: `test_live_supervisor_resumes_killed_claude_session` — real `claude -p` session SIGKILLed 3.5 s in (exit −9); supervisor resumed **the same session id** with `--resume`; agent fixed `calc.py`; the supervisor's own verification (`run-9075ffd641c7`) → SATISFIED (`live-runs/supervisor-resume-report.md`). Real processes: `test_supervisor_process_killed_mid_dispatch_recovers` SIGKILLs the *supervisor* mid-dispatch; restart takes over the stale lease, terminates the orphaned agent, marks it `interrupted`, re-dispatches, SATISFIED, `PRAGMA integrity_check = ok`. Mock: crash→resume, no-resume adapter starts a fresh session honestly, crash retries bounded. |
+| Cancel doesn't restart; permission denial isn't bypassed; rate limits back off with a cap | `test_user_cancel_mid_execution_kills_it_and_never_restarts`, `test_human_stop_flag_halts_and_only_human_clears`, `test_permission_denial_is_escalated_not_bypassed`, `test_policy_must_be_accepted_by_human_and_cannot_be_silently_widened`, `test_rate_limit_exponential_backoff_then_success` (10 s, 20 s), `test_rate_limit_budget_caps_retries` |
+| Restart doesn't re-dispatch completed actions; report shows every attempt, evidence, state, recovery reason | `test_restart_after_crash_before_verification_does_not_redispatch`; `rvd supervise report` / `rvd report` "Supervisor" table (see live report) |
+| ≥1 explicit non-interactive invocation; Stop-hook continuation is not the supervisor | `ClaudeCodeHeadlessAdapter` = `claude -p --output-format stream-json --verbose [--resume ID]`, verified live; classification tested with a fake `claude` binary (success / permission_denials / 429 / max-turns / killed). Agents cannot start a supervisor (`test_agent_cannot_start_supervisor`). |
+
+Also: dispatch/cost/time budgets, no-information-gain escalation (`needs_human`), BLOCKED goals
+dispatch nothing, one supervisor per project (lease). Full suite: **56 passed, 1 skipped (opt-in live)**;
+live tests: **2/2 passed**.
+
+## 7. Known limitations
+- Cost of a session killed before its `result` line is unknown and recorded as $0, so `cost_budget_usd`
+  under-counts sessions that crash; `max_dispatches`/`time_budget_sec` still bound them.
+- Supervisor lease takeover detects dead holders by PID on the same host only.
+- `ShellAdapter` (Codex/OpenCode-style CLIs) has no session resume and relies on the exit-code
+  convention 75/77; adapters for specific vendors beyond Claude Code are not included.
+- No notification channel (email/Slack) when the supervisor stops for a human; read
+  `rvd supervise status` / `report` (the doc doesn't specify notifications).
+- `parallelism` > 1 is not implemented: one dispatch at a time per project.
 - Environment adaptation is rule-based (ordered alternatives in the contract + probing). The agent
   proposes *new* alternatives via `rvd amend propose`; there is no autonomous search for toolchains.
 - arm-demo's board/QEMU commands reference a `bench_ringbuf` program that is not in the example yet
