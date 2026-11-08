@@ -1,0 +1,32 @@
+# RVD Goal Contract — edit, then run `rvd init` (a human must add --confirm-hard if HARD items exist).
+goal_id: my-goal
+version: 1
+owner: your-name
+intent: >
+  Describe in one paragraph what must be true when this work is done.
+requirements:
+  - id: R1
+    description: Core behaviour works
+    mandatory: true
+    predicate: "all unit tests in tests/ pass"
+    accept:
+      methods: [unit_test]
+checks:
+  - id: unit
+    proves: [R1]
+    alternatives:
+      - id: pytest
+        method: unit_test
+        command: python3 -m pytest -q tests
+        requires: {tools: [python3]}
+constraints:
+  - id: C1
+    kind: NEGOTIABLE
+    statement: Test tooling may change as long as coverage of R1 is preserved.
+budget:
+  max_attempts_per_issue: 6
+  max_consecutive_no_progress: 2
+  max_stop_blocks_per_session: 6
+completion_policy:
+  require_all_mandatory: true
+  unreferenced_tasks: allow

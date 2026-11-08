@@ -1,0 +1,16 @@
+{
+  "name": "rvd-harness",
+  "version": "0.1.0",
+  "description": "RVD 2.0 goal-driven harness: goal contract, evidence-gated completion, persistent open issues and controlled recovery.",
+  "author": {
+    "name": "RVD"
+  },
+  "keywords": [
+    "verification",
+    "harness",
+    "hooks",
+    "evidence",
+    "tdd"
+  ],
+  "license": "MIT"
+}

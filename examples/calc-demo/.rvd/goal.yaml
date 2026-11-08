@@ -1,0 +1,31 @@
+goal_id: calc-demo
+version: 1
+owner: xiang
+intent: >
+  A small calculator library whose arithmetic is correct and whose edge cases
+  (division by zero, empty mean) follow the spec.
+requirements:
+  - id: R-CORE
+    description: add/sub/mul are correct incl. negatives and floats
+    mandatory: true
+    predicate: "tests/test_core.py passes (8 tests)"
+    accept: {methods: [unit_test]}
+  - id: R-EDGE
+    description: div(x,0) raises ValueError("division by zero"); mean([]) returns None
+    mandatory: true
+    predicate: "tests/test_div.py passes (2 tests)"
+    accept: {methods: [unit_test]}
+checks:
+  - id: core
+    proves: [R-CORE]
+    alternatives:
+      - {id: pytest, method: unit_test, command: "python3 -m pytest -q -p no:cacheprovider tests/test_core.py", requires: {tools: [python3]}}
+  - id: edge
+    proves: [R-EDGE]
+    alternatives:
+      - {id: pytest, method: unit_test, command: "python3 -m pytest -q -p no:cacheprovider tests/test_div.py", requires: {tools: [python3]}}
+constraints:
+  - {id: C1, kind: HARD, statement: "Edge-case semantics in the spec may not be weakened.", protects: [R-EDGE]}
+  - {id: C2, kind: NEGOTIABLE, statement: "Test runner may change if coverage is preserved."}
+budget: {max_consecutive_no_progress: 2, max_attempts_per_issue: 6, max_stop_blocks_per_session: 6}
+completion_policy: {require_all_mandatory: true, unreferenced_tasks: allow}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rvd.dev/schemas/evidence.schema.json",
+  "title": "RVD Evidence Record and structured agent outputs",
+  "$defs": {
+    "evidence_record": {
+      "type": "object",
+      "required": ["evidence_id", "requirement_ids", "check_id", "method", "environment_fingerprint", "artifact_hash", "command", "exit_code", "timestamp", "log_path", "log_sha256", "passed", "claim_supported", "limitations", "verifier", "contract_version"],
+      "properties": {
+        "evidence_id": {"type": "string"},
+        "requirement_ids": {"type": "array", "items": {"type": "string"}},
+        "check_id": {"type": "string"},
+        "alternative_id": {"type": "string"},
+        "method": {"type": "string"},
+        "environment_fingerprint": {"type": "string"},
+        "artifact_hash": {"type": "string"},
+        "command": {"type": "string"},
+        "exit_code": {"type": ["integer", "null"]},
+        "timestamp": {"type": "string"},
+        "log_path": {"type": "string"},
+        "log_sha256": {"type": "string"},
+        "passed": {"type": "boolean"},
+        "claim_supported": {"type": "string"},
+        "limitations": {"type": "string"},
+        "verifier": {"type": "string"},
+        "contract_version": {"type": "integer"}
+      }
+    },
+    "execution_result": {
+      "type": "object",
+      "required": ["kind", "summary"],
+      "properties": {
+        "kind": {"const": "execution_result"},
+        "summary": {"type": "string"},
+        "claimed_requirements": {"type": "array", "items": {"type": "string"}},
+        "changed_files": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "strategy_proposal": {
+      "type": "object",
+      "required": ["kind", "issue_id", "strategy", "expected_coverage", "risk"],
+      "properties": {
+        "kind": {"const": "strategy_proposal"},
+        "issue_id": {"type": "string"},
+        "strategy": {"type": "string"},
+        "expected_coverage": {"type": "array", "items": {"type": "string"}},
+        "remaining_gaps": {"type": "array", "items": {"type": "string"}},
+        "risk": {"enum": ["low", "medium", "high"]},
+        "needs_authorization": {"type": "boolean"}
+      }
+    }
+  }
+}

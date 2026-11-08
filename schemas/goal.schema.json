@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rvd.dev/schemas/goal.schema.json",
+  "title": "RVD Goal Contract",
+  "type": "object",
+  "required": ["goal_id", "version", "intent", "requirements", "owner"],
+  "additionalProperties": false,
+  "properties": {
+    "goal_id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+    "version": {"type": "integer", "minimum": 1},
+    "intent": {"type": "string", "minLength": 1},
+    "owner": {"type": "string", "minLength": 1},
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/requirement"}
+    },
+    "checks": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/check"},
+      "default": []
+    },
+    "constraints": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/constraint"},
+      "default": []
+    },
+    "environment_assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "statement"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "statement": {"type": "string"},
+          "probe": {"$ref": "#/$defs/requires"}
+        }
+      },
+      "default": []
+    },
+    "risk_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "network": {"enum": ["deny", "ask", "allow"]},
+        "remote_execution": {"enum": ["deny", "ask", "allow"]},
+        "paid_resources": {"enum": ["deny", "ask"]},
+        "production": {"enum": ["deny", "ask"]},
+        "delete_files": {"enum": ["deny", "ask", "allow"]},
+        "download_images": {"enum": ["deny", "ask", "allow"]}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts_per_issue": {"type": "integer", "minimum": 1},
+        "max_consecutive_no_progress": {"type": "integer", "minimum": 1},
+        "max_stop_blocks_per_session": {"type": "integer", "minimum": 0},
+        "time_budget_sec": {"type": "integer", "minimum": 1},
+        "check_timeout_sec": {"type": "integer", "minimum": 1},
+        "parallelism": {"type": "integer", "minimum": 1},
+        "cooldown_sec": {"type": "integer", "minimum": 0}
+      }
+    },
+    "completion_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "require_all_mandatory": {"const": true},
+        "unreferenced_tasks": {"enum": ["block", "allow"]},
+        "inputs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "amendment_log": {"type": "array", "items": {"type": "object"}}
+  },
+  "$defs": {
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tools": {"type": "array", "items": {"type": "string"}},
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "env": {"type": "array", "items": {"type": "string"}},
+        "arch": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "method": {
+      "enum": ["unit_test", "integration_test", "host_unit_test", "cross_compile", "simulation", "mock", "static_analysis", "real_hardware", "manual_review", "benchmark"]
+    },
+    "requirement": {
+      "type": "object",
+      "required": ["id", "description", "mandatory", "accept"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"},
+        "description": {"type": "string"},
+        "mandatory": {"type": "boolean"},
+        "predicate": {"type": "string", "description": "Human-readable acceptance predicate. Changing it requires an amendment."},
+        "accept": {
+          "type": "object",
+          "required": ["methods"],
+          "additionalProperties": false,
+          "properties": {
+            "methods": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/method"}, "description": "Methods whose passing evidence fully verifies this requirement."},
+            "partial_methods": {"type": "array", "items": {"$ref": "#/$defs/method"}, "description": "Methods whose passing evidence only partially verifies it."}
+          }
+        },
+        "hard": {"type": "boolean", "default": false}
+      }
+    },
+    "alternative": {
+      "type": "object",
+      "required": ["id", "method", "command"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "method": {"$ref": "#/$defs/method"},
+        "command": {"type": "string"},
+        "requires": {"$ref": "#/$defs/requires"},
+        "limitations": {"type": "string"},
+        "risk": {"enum": ["low", "medium", "high"]}
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": ["id", "proves", "alternatives"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"},
+        "proves": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "description": {"type": "string"},
+        "alternatives": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/alternative"}},
+        "timeout_sec": {"type": "integer", "minimum": 1}
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "required": ["id", "kind", "statement"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "kind": {"enum": ["HARD", "NEGOTIABLE", "ASSUMPTION", "ENVIRONMENT_FACT"]},
+        "statement": {"type": "string"},
+        "source": {"type": "string"},
+        "change_authority": {"type": "string"},
+        "protects": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

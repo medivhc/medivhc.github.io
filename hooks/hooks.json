@@ -1,0 +1,15 @@
+{
+  "description": "RVD gate: evidence-based completion; failure reports cannot end a goal; protected contract.",
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 20}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 10}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 30}]}],
+    "SubagentStop": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 20}]}],
+    "TaskCompleted": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 30}]}],
+    "PreToolUse": [{"matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 10}]}],
+    "PostToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 10}]}],
+    "PostToolUseFailure": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 10}]}],
+    "StopFailure": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 10}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_entry.py\"", "timeout": 5}]}]
+  }
+}

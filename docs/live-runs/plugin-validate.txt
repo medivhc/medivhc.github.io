@@ -1,0 +1,3 @@
+      /plugin install rvd-harness --marketplace <owner>/<repo>
+
+√ Validation passed

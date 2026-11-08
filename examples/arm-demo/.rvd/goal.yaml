@@ -1,0 +1,48 @@
+goal_id: arm-ringbuf
+version: 1
+owner: xiang
+intent: >
+  Deliver a ring buffer for the sensor ISR of our ARM64 SoC: logically correct,
+  builds for aarch64, and meets the ISR latency budget on the real board.
+requirements:
+  - id: R1
+    description: Ring buffer logic is correct (push/pop/full/empty/wrap-around)
+    mandatory: true
+    predicate: "test_ringbuf passes"
+    accept: {methods: [host_unit_test, simulation, real_hardware]}
+  - id: R2
+    description: Code compiles for the aarch64 target
+    mandatory: true
+    predicate: "object file is an AArch64 ELF (e_machine=183)"
+    accept: {methods: [cross_compile, real_hardware]}
+  - id: R3
+    description: rb_push+rb_pop stay under 2 microseconds p99 on the real board
+    mandatory: true
+    hard: true
+    predicate: "bench on board reports p99 < 2us"
+    accept: {methods: [real_hardware], partial_methods: [simulation]}
+checks:
+  - id: logic
+    proves: [R1]
+    alternatives:
+      - {id: host-cc, method: host_unit_test, command: "mkdir -p build && cc -std=c11 -Wall -Werror -o build/test_ringbuf tests/test_ringbuf.c src/ringbuf.c && ./build/test_ringbuf", requires: {tools: [cc]}, limitations: "host x86/arm build; proves portable logic only"}
+  - id: xbuild
+    proves: [R2]
+    alternatives:
+      - {id: gcc-cross, method: cross_compile, command: "mkdir -p build && aarch64-linux-gnu-gcc -std=c11 -Wall -Werror -c src/ringbuf.c -o build/ringbuf.aarch64.o && python3 tools/check_elf.py build/ringbuf.aarch64.o aarch64", requires: {tools: [aarch64-linux-gnu-gcc]}}
+      - {id: zig-cc, method: cross_compile, command: "mkdir -p build && zig cc -target aarch64-linux-musl -c src/ringbuf.c -o build/ringbuf.aarch64.o && python3 tools/check_elf.py build/ringbuf.aarch64.o aarch64", requires: {tools: [zig]}}
+      - {id: clang-target, method: cross_compile, command: "mkdir -p build && clang --target=aarch64-linux-gnu -ffreestanding -std=c11 -Wall -Werror -c src/ringbuf.c -o build/ringbuf.aarch64.o && python3 tools/check_elf.py build/ringbuf.aarch64.o aarch64", requires: {tools: [clang]}, limitations: "compile-only (no aarch64 sysroot to link); freestanding code so this covers R2"}
+  - id: latency
+    proves: [R3]
+    alternatives:
+      - {id: board-ssh, method: real_hardware, command: "ssh \"$RVD_ARM_BOARD_SSH\" ./bench_ringbuf --p99-max-us 2", requires: {env: [RVD_ARM_BOARD_SSH], tools: [ssh]}, risk: medium, limitations: "requires the physical board"}
+      - {id: qemu-user, method: simulation, command: "qemu-aarch64 -L /usr/aarch64-linux-gnu ./build/bench_ringbuf.aarch64 --p99-max-us 2", requires: {tools: [qemu-aarch64]}, limitations: "QEMU timing is not representative of the SoC; at most partial evidence for R3"}
+constraints:
+  - {id: C1, kind: HARD, statement: "ISR latency must be measured on the real board; simulation cannot close R3.", protects: [R3]}
+  - {id: C2, kind: ASSUMPTION, statement: "A board is needed before any testing can start (to be challenged)."}
+  - {id: C3, kind: NEGOTIABLE, statement: "Choice of cross toolchain (gcc/zig/clang) is free."}
+environment_assumptions:
+  - {id: A1, statement: "An ARM64 board is reachable", probe: {env: [RVD_ARM_BOARD_SSH]}}
+risk_policy: {remote_execution: ask, network: ask, paid_resources: deny, production: deny}
+budget: {max_consecutive_no_progress: 2}
+completion_policy: {require_all_mandatory: true, unreferenced_tasks: allow}
