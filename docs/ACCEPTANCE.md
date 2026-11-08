@@ -44,7 +44,7 @@ Real vs mock: scenarios A–L run the real CLI and the real hook entry point as 
 Claude Code–shaped JSON on stdin; two fixtures are payloads captured from the live sessions above.
 Scenario D uses a **fake `qemu-aarch64`** on PATH (a stub that "passes") to prove a passing
 simulator still cannot close a real-hardware requirement. Cross-adapter hand-off uses `MockAdapter`.
-The live pytest (`RVD_LIVE=1 -m live`) runs a real headless Claude Code session.
+The live pytest (`RVD_LIVE=1 -m live`) runs a real headless Claude Code session — **run once: 1 passed (45.5 s)**.
 
 | §14 | Test | Result |
 |---|---|---|
